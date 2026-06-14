@@ -1,0 +1,20 @@
+{
+  "name": "outpatient-waitlist-system",
+  "version": "1.0.0",
+  "description": "门诊候补号源与爽约恢复系统",
+  "private": true,
+  "scripts": {
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "start": "cd server && npm start",
+    "build": "cd client && npm run build"
+  },
+  "keywords": ["outpatient", "waitlist", "appointment"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background-color: #f3f4f6;
+}
+
+.btn {
+  @apply px-3 py-1.5 rounded-md text-sm font-medium transition-colors inline-flex items-center gap-1;
+}
+.btn-primary { @apply bg-primary-600 text-white hover:bg-primary-700 disabled:bg-gray-400; }
+.btn-success { @apply bg-emerald-600 text-white hover:bg-emerald-700 disabled:bg-gray-400; }
+.btn-warning { @apply bg-amber-500 text-white hover:bg-amber-600 disabled:bg-gray-400; }
+.btn-danger  { @apply bg-rose-600 text-white hover:bg-rose-700 disabled:bg-gray-400; }
+.btn-gray    { @apply bg-gray-600 text-white hover:bg-gray-700 disabled:bg-gray-400; }
+.btn-outline { @apply border border-gray-300 bg-white text-gray-700 hover:bg-gray-50; }
+
+.card {
+  @apply bg-white rounded-lg shadow-sm border border-gray-200 p-4;
+}
+
+.badge {
+  @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
+}
+.badge-waiting   { @apply bg-blue-100 text-blue-800; }
+.badge-notifying { @apply bg-amber-100 text-amber-800 animate-pulse; }
+.badge-confirmed { @apply bg-emerald-100 text-emerald-800; }
+.badge-passed    { @apply bg-orange-100 text-orange-800; }
+.badge-expired   { @apply bg-rose-100 text-rose-800; }
+.badge-cancelled { @apply bg-gray-100 text-gray-600; }
+.badge-active    { @apply bg-emerald-100 text-emerald-800; }
+.badge-full      { @apply bg-rose-100 text-rose-800; }
+.badge-closed    { @apply bg-gray-100 text-gray-600; }
+
+.input {
+  @apply border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none;
+}
+
+table.data-table {
+  @apply w-full text-sm text-left border-collapse;
+}
+table.data-table th {
+  @apply px-3 py-2 bg-gray-50 font-semibold text-gray-700 border-b border-gray-200 whitespace-nowrap;
+}
+table.data-table td {
+  @apply px-3 py-2 border-b border-gray-100 whitespace-nowrap;
+}
