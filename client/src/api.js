@@ -105,7 +105,8 @@ export const precheckApi = {
   listExports: () => api.get('/precheck/exports'),
   exportCsv: (params) => api.get('/precheck/csv/export', { params, responseType: 'blob' }),
   getTemplate: () => api.get('/precheck/csv/template', { responseType: 'blob' }),
-  importCsv: (content) => api.post('/precheck/csv/import', { content })
+  importCsv: (content) => api.post('/precheck/csv/import', { content }),
+  checkDuplicate: (patientId, slotId, excludeId) => api.get('/precheck/duplicate-check', { params: { patientId, slotId, excludeId } })
 }
 
 export default api

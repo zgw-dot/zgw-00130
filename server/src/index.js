@@ -1036,6 +1036,20 @@ app.get('/api/precheck/csv/template', authMiddleware, (req, res) => {
   res.send(csv);
 });
 
+app.get('/api/precheck/duplicate-check', authMiddleware, (req, res, next) => {
+  try {
+    const { patientId, slotId, excludeId } = req.query;
+    if (!patientId || !slotId) return res.status(400).json({ error: '请提供 patientId 和 slotId' });
+    const result = precheckService.verifyDuplicateConflict(
+      req,
+      parseInt(patientId),
+      parseInt(slotId),
+      excludeId ? parseInt(excludeId) : null
+    );
+    res.json(result);
+  } catch (e) { next(e); }
+});
+
 app.post('/api/precheck/csv/import', authMiddleware, (req, res, next) => {
   try {
     const { content } = req.body || {};

@@ -445,10 +445,10 @@ export default function Precheck({ user }) {
                           <td>
                             <span className={`badge inline-block border ${sm.color}`}>{sm.label}</span>
                           </td>
-                          <CheckCell ok={r.lab_result} note={r.lab_note} requiredKey="precheck_lab_required" />
-                          <CheckCell ok={r.imaging_result} note={r.imaging_note} requiredKey="precheck_imaging_required" />
-                          <CheckCell ok={r.consent_result} note={r.consent_note} requiredKey="precheck_consent_required" />
-                          <CheckCell ok={r.fasting_result} note={r.fasting_note} requiredKey="precheck_fasting_required" />
+                          <CheckCell ok={r.lab_result} note={r.lab_note} requiredKey="precheck_lab_required" config={config} />
+                          <CheckCell ok={r.imaging_result} note={r.imaging_note} requiredKey="precheck_imaging_required" config={config} />
+                          <CheckCell ok={r.consent_result} note={r.consent_note} requiredKey="precheck_consent_required" config={config} />
+                          <CheckCell ok={r.fasting_result} note={r.fasting_note} requiredKey="precheck_fasting_required" config={config} />
                           <td className="text-xs max-w-[180px]">
                             {r.freeze_reason && <div className="text-rose-700">冻：{r.freeze_reason}</div>}
                             {r.release_note && <div className="text-sky-700">放：{r.release_note}</div>}
@@ -619,10 +619,10 @@ export default function Precheck({ user }) {
               <div>当前状态：<span className={`badge border ${statusMap[selected.status]?.color}`}>{statusMap[selected.status]?.label}</span></div>
             </div>
 
-            <CheckEdit label="化验报告" requiredKey="precheck_lab_required" resultKey="labResult" noteKey="labNote" form={editForm} setForm={setEditForm} />
-            <CheckEdit label="影像检查" requiredKey="precheck_imaging_required" resultKey="imagingResult" noteKey="imagingNote" form={editForm} setForm={setEditForm} />
-            <CheckEdit label="知情同意书" requiredKey="precheck_consent_required" resultKey="consentResult" noteKey="consentNote" form={editForm} setForm={setEditForm} />
-            <CheckEdit label="禁食要求确认" requiredKey="precheck_fasting_required" resultKey="fastingResult" noteKey="fastingNote" form={editForm} setForm={setEditForm} />
+            <CheckEdit label="化验报告" requiredKey="precheck_lab_required" resultKey="labResult" noteKey="labNote" form={editForm} setForm={setEditForm} config={config} />
+            <CheckEdit label="影像检查" requiredKey="precheck_imaging_required" resultKey="imagingResult" noteKey="imagingNote" form={editForm} setForm={setEditForm} config={config} />
+            <CheckEdit label="知情同意书" requiredKey="precheck_consent_required" resultKey="consentResult" noteKey="consentNote" form={editForm} setForm={setEditForm} config={config} />
+            <CheckEdit label="禁食要求确认" requiredKey="precheck_fasting_required" resultKey="fastingResult" noteKey="fastingNote" form={editForm} setForm={setEditForm} config={config} />
 
             <div className="flex gap-2 justify-end pt-4 border-t">
               <button onClick={() => setShowEditModal(false)} className="btn btn-outline">取消</button>
@@ -741,23 +741,27 @@ export default function Precheck({ user }) {
   )
 }
 
-function CheckCell({ ok, note, requiredKey }) {
-  const isRequiredCfg = true
+function CheckCell({ ok, note, requiredKey, config }) {
+  const cfg = config?.find(c => c.key === requiredKey)
+  const isRequired = cfg?.value === 'true'
   return (
     <td>
-      <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs border ${ok ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-gray-100 text-gray-500 border-gray-200'}`}>
+      <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs border ${ok ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : isRequired ? 'bg-rose-50 text-rose-600 border-rose-200' : 'bg-gray-100 text-gray-500 border-gray-200'}`}>
         <span>{ok ? '✓' : '✗'}</span>
         <span>{ok ? '完成' : '未完成'}</span>
+        {isRequired && !ok && <span className="text-rose-500 font-bold">*</span>}
       </div>
       {note && <div className="text-xs text-gray-500 mt-1 max-w-[120px] truncate" title={note}>{note}</div>}
     </td>
   )
 }
 
-function CheckEdit({ label, resultKey, noteKey, form, setForm }) {
+function CheckEdit({ label, requiredKey, resultKey, noteKey, form, setForm, config }) {
   const update = (patch) => setForm({ ...form, ...patch })
+  const cfg = config?.find(c => c.key === requiredKey)
+  const isRequired = cfg?.value === 'true'
   return (
-    <div className="border rounded p-3">
+    <div className={`border rounded p-3 ${isRequired ? 'border-rose-200 bg-rose-50/30' : ''}`}>
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <label className="inline-flex items-center gap-2 cursor-pointer">
@@ -767,8 +771,12 @@ function CheckEdit({ label, resultKey, noteKey, form, setForm }) {
               onChange={e => update({ [resultKey]: e.target.checked })}
               className="w-4 h-4"
             />
-            <span className={`font-medium ${form[resultKey] ? 'text-emerald-700' : 'text-gray-700'}`}>{label}</span>
+            <span className={`font-medium ${form[resultKey] ? 'text-emerald-700' : 'text-gray-700'}`}>
+              {label}
+              {isRequired && <span className="text-rose-500 ml-1">*</span>}
+            </span>
           </label>
+          {isRequired && <span className="text-xs badge badge-warning">必填</span>}
         </div>
         <span className={`text-xs ${form[resultKey] ? 'text-emerald-600' : 'text-rose-500'}`}>
           {form[resultKey] ? '已完成' : '待完成'}

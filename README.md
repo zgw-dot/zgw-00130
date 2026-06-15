@@ -402,6 +402,247 @@ zgw-00130/
 | 改期回滚 | 整批/单笔撤销，基于快照完整恢复预约、候补、号源名额 |
 | 改期权限 | 可配置 `reschedule_clerk_can_submit` 决定办事员能否提交 |
 | 跨医生改期 | 可配置 `reschedule_allow_cross_doctor` 开关控制 |
+| 术前核验必填项 | 4 项核验项（化验/影像/知情/禁食）各自独立开关，`precheck_*_required` |
+| 术前核验强制放行权限 | 可配置 `precheck_force_release_role` 为 admin 或 clerk |
+| 术前核验重复冲突 | 导入时检查同一患者同一时段不能有两条可执行预约（pending/verified/released/force_released） |
+| 术前核验状态机 | pending→verified→frozen→released→revoked，状态流转校验不允许跳步 |
+| 术前核验冻结原因 | 冻结、撤销必须提供非空真实原因，前后端双重校验，无默认兜底文案 |
+| 术前核验导出一致性 | 每次导出写入快照哈希（MD5），`precheck_exports` 表持久化记录方便对账 |
+
+---
+
+## 🏥 术前核验工作台 —— 完整主流程
+
+### 前置条件
+1. 系统中已存在 **患者预约**（`appointments` 表状态为 `booked` 或 `confirmed`）。
+2. 预约对应的号源（`slots` 表）带有 `date` 日期字段。
+
+### 主流程 9 步走
+
+| 步骤 | 操作 | 说明 |
+|---|---|---|
+| 1. 登录 | 使用 `admin/admin123` 或 `clerk1/clerk123` 登录 | 侧边栏出现「🏥 术前核验」菜单 |
+| 2. 选择日期 | 在工作台顶部设置「核验日期」，例如明天 `2026-06-16` | 日期默认今天 |
+| 3. 预览 | 点击「👁️ 预览该日期预约」 | 弹出模态框展示该日期所有 booked/confirmed 预约的患者/医生/时段 |
+| 4. 导入 | 点击「📥 按日期导入待核验」 | 系统将预约导入 `precheck_records` 表，初始状态 `pending` |
+| 5. 逐项核验 | 逐条点击「编辑核验」，勾选化验/影像/知情/禁食四项，写备注后保存 | 必填项开关可在「⚙️ 规则配置」中调整 |
+| 6. 材料不全时冻结 | 点击某行「冻结」→ 填写冻结原因（必填，例如「CT报告未出」）→ 确认 | 记录变 `frozen`，写入 `precheck_notifications` 冻结通知，写入审计 |
+| 7. 补齐材料后放行 | 点击「放行」（普通放行）或「强放」（管理员特批） | 普通放行需所有必填核验项完成；强制放行绕过校验并写入 `force_released` 状态 |
+| 8. 错误操作后撤销 | 对 `released`/`force_released` 状态的记录点击「撤销」→ 填写撤销原因 → 确认 | 状态回滚到 `revoked`，再次通知患者，全程审计 |
+| 9. 导出对账 | 点击「📤 导出当前筛选」生成 CSV，到「📤 导出历史」页查看每次导出的快照哈希 | 哈希用于验证两次导出的一致性（见失败路径 3） |
+
+### 状态流转图
+```
+pending ──(核验项全完成)──> verified
+   │                           │
+   └────────(冻结+原因)────────┘──► frozen
+                                       │
+                    ┌────(放行)────────┴──(强制放行)────┐
+                    │                                    │
+                released ──(撤销+原因)──► revoked     force_released ──(撤销+原因)──► revoked
+```
+
+### 规则配置 10 项（持久化 + 权限校验）
+
+| 配置键 | 类型 | 默认值 | 作用 |
+|---|---|---|---|
+| `precheck_lab_required` | bool | true | 化验报告是否必填（影响普通放行校验） |
+| `precheck_imaging_required` | bool | true | 影像检查是否必填 |
+| `precheck_consent_required` | bool | true | 知情同意书是否必填 |
+| `precheck_fasting_required` | bool | true | 禁食要求确认是否必填 |
+| `precheck_force_release_role` | enum | admin | 允许「强制放行」的角色（admin/clerk） |
+| `precheck_auto_notify_doctor_on_release` | bool | true | 放行后是否自动生成医生通知 |
+| `precheck_clerk_can_import` | bool | true | 办事员是否允许按日期导入 |
+| `precheck_clerk_can_freeze` | bool | true | 办事员是否允许冻结 |
+| `precheck_clerk_can_release` | bool | true | 办事员是否允许普通放行 |
+| `precheck_clerk_can_revoke` | bool | false | 办事员是否允许撤销放行（默认仅管理员） |
+
+---
+
+## 🟥 术前核验 —— 三条失败路径（验收必过）
+
+### 失败路径 1：clerk 越权修改规则配置
+
+**目标**：验证非 admin 用户不能修改术前核验规则，规则接口有独立的权限中间件。
+
+**步骤**：
+
+```bash
+# 1. 先以 admin 登录，拿到管理员 Token
+curl -X POST http://localhost:3001/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"admin123"}'
+# → {"token":"ADMIN_TOKEN","user":{"role":"admin"}}
+
+# 2. 以 clerk1 登录，拿到办事员 Token
+curl -X POST http://localhost:3001/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"clerk1","password":"clerk123"}'
+# → {"token":"CLERK_TOKEN","user":{"role":"clerk"}}
+
+# 3. 【关键验证】用 CLERK_TOKEN 去改规则，应返回 403
+curl -X PUT http://localhost:3001/api/precheck/config \
+  -H 'Authorization: Bearer CLERK_TOKEN' \
+  -H 'Content-Type: application/json' \
+  -d '{"key":"precheck_force_release_role","value":"clerk"}'
+# → 期望：403 { "error": "仅管理员可修改术前核验规则" }
+
+# 4. 用 ADMIN_TOKEN 改规则，应成功
+curl -X PUT http://localhost:3001/api/precheck/config \
+  -H 'Authorization: Bearer ADMIN_TOKEN' \
+  -H 'Content-Type: application/json' \
+  -d '{"key":"precheck_force_release_role","value":"clerk"}'
+# → 期望：200 { "key":"precheck_force_release_role", "old":"admin", "new":"clerk" }
+
+# 5. 前端验证：用 clerk1 登录进入「🏥 术前核验 → ⚙️ 规则配置」页
+#    所有开关和下拉框应呈禁用态（disabled），页面顶部显示红色提示「仅管理员可修改（只读）」
+#    审计日志 (GET /api/audit-logs?entityType=precheck_config) 应能查到 admin 修改规则的记录
+```
+
+---
+
+### 失败路径 2：重复放行（同患者同时段冲突检测 + 状态流转校验）
+
+**目标**：验证系统在以下两种情况下都能阻止重复可执行预约：
+- 导入时检测到同患者同时段已有可执行记录，跳过；
+- 对已冻结的记录连续点击两次「放行」，第二次被拒绝。
+
+**步骤**：
+
+```bash
+# 1. admin 登录并选定一个有预约的日期导入
+curl -X POST http://localhost:3001/api/precheck/import \
+  -H 'Authorization: Bearer ADMIN_TOKEN' \
+  -H 'Content-Type: application/json' \
+  -d '{"date":"2026-06-16"}'
+# → 期望：imported=N, skipped=0
+
+# 2. 【关键验证1】对同一个日期再次导入
+curl -X POST http://localhost:3001/api/precheck/import \
+  -H 'Authorization: Bearer ADMIN_TOKEN' \
+  -H 'Content-Type: application/json' \
+  -d '{"date":"2026-06-16"}'
+# → 期望：imported=0，skipped=N。
+#    理由：appointment_id 有 UNIQUE 约束，且状态非 cancelled/checked_in/frozen
+#    的记录不应被重复处理。
+
+# 3. 取第一条记录 ID（假设为 1），先把它冻住
+curl -X POST http://localhost:3001/api/precheck/records/1/freeze \
+  -H 'Authorization: Bearer ADMIN_TOKEN' \
+  -H 'Content-Type: application/json' \
+  -d '{"reason":"缺少血常规报告"}'
+# → 期望：200，record.status = "frozen"
+
+# 4. 把核验项补齐（四项全勾）
+curl -X PUT http://localhost:3001/api/precheck/records/1/items \
+  -H 'Authorization: Bearer ADMIN_TOKEN' \
+  -H 'Content-Type: application/json' \
+  -d '{"labResult":true,"imagingResult":true,"consentResult":true,"fastingResult":true}'
+# → 期望：ok=true
+
+# 5. 第一次放行，成功
+curl -X POST http://localhost:3001/api/precheck/records/1/release \
+  -H 'Authorization: Bearer ADMIN_TOKEN' \
+  -H 'Content-Type: application/json' \
+  -d '{}'
+# → 期望：200，record.status = "released"
+
+# 6. 【关键验证2】对同一条记录再次放行（模拟重复点击）
+curl -X POST http://localhost:3001/api/precheck/records/1/release \
+  -H 'Authorization: Bearer ADMIN_TOKEN' \
+  -H 'Content-Type: application/json' \
+  -d '{}'
+# → 期望：400 { "error": "当前状态(released)不允许放行" }
+#    理由：releaseRecord 中 status 必须严格等于 'frozen' 才能放行
+
+# 7. 【关键验证3】再验证「撤销原因不能为空」
+curl -X POST http://localhost:3001/api/precheck/records/1/revoke \
+  -H 'Authorization: Bearer ADMIN_TOKEN' \
+  -H 'Content-Type: application/json' \
+  -d '{"reason":""}'
+# → 期望：400 { "error": "撤销必须提供原因" }
+```
+
+---
+
+### 失败路径 3：冻结后导出不一致（导出带快照哈希，两次导出对账）
+
+**目标**：验证：
+- 冻结操作会真正影响 CSV 导出内容（状态列、冻结原因列）；
+- 每次导出写入带 MD5 快照哈希的 `precheck_exports` 记录，可用于对账；
+- 「冻结前 → 冻结 → 冻结后」三次导出的哈希值应互不相同。
+
+**步骤**：
+
+```bash
+# 0. 选定一个有预约的日期，提前把数据导干净
+#    删除 server/data/app.db 后重新 seed：
+#    rm server/data/app.db ; cd server ; npm run seed
+
+# 1. 登录并导入该日期的预约
+curl -X POST http://localhost:3001/api/precheck/import \
+  -H 'Authorization: Bearer ADMIN_TOKEN' \
+  -H 'Content-Type: application/json' \
+  -d '{"date":"2026-06-16"}'
+
+# 2. 【导出 #1】冻结前第一次导出，保存快照哈希
+curl -D headers1.txt -o export1.csv http://localhost:3001/api/precheck/csv/export?date=2026-06-16 \
+  -H 'Authorization: Bearer ADMIN_TOKEN'
+HASH1=$(grep -i 'x-snapshot-hash' headers1.txt | tr -d '\r' | awk -F': ' '{print $2}')
+echo "冻结前哈希 = $HASH1"
+# 查一下导出历史里是否有这条：
+curl http://localhost:3001/api/precheck/exports \
+  -H 'Authorization: Bearer ADMIN_TOKEN'
+# → list 中应有刚导出的 record_count 条，snapshot_hash 非空
+
+# 3. 找一条记录，假设 ID 为 1，执行冻结
+curl -X POST http://localhost:3001/api/precheck/records/1/freeze \
+  -H 'Authorization: Bearer ADMIN_TOKEN' \
+  -H 'Content-Type: application/json' \
+  -d '{"reason":"知情同意书未签字，家属还在外地"}'
+
+# 4. 【导出 #2】冻结后第二次导出（带 status=frozen 且有 freeze_reason）
+curl -D headers2.txt -o export2.csv http://localhost:3001/api/precheck/csv/export?date=2026-06-16 \
+  -H 'Authorization: Bearer ADMIN_TOKEN'
+HASH2=$(grep -i 'x-snapshot-hash' headers2.txt | tr -d '\r' | awk -F': ' '{print $2}')
+echo "冻结后哈希 = $HASH2"
+
+# 5. 【关键对比】HASH1 != HASH2（因为第1行状态变了、冻结原因加了）
+if [ "$HASH1" = "$HASH2" ]; then
+  echo "❌ 失败：冻结前后导出哈希竟然一样，说明导出内容没随数据变化！"
+else
+  echo "✅ 通过：冻结前后哈希不同，导出内容反映了最新状态"
+fi
+
+# 6. 把这条记录补齐核验项并放行
+curl -X PUT http://localhost:3001/api/precheck/records/1/items \
+  -H 'Authorization: Bearer ADMIN_TOKEN' \
+  -H 'Content-Type: application/json' \
+  -d '{"labResult":true,"imagingResult":true,"consentResult":true,"fastingResult":true}'
+curl -X POST http://localhost:3001/api/precheck/records/1/release \
+  -H 'Authorization: Bearer ADMIN_TOKEN' \
+  -H 'Content-Type: application/json' \
+  -d '{"releaseNote":"材料已补齐同意书已签"}'
+
+# 7. 【导出 #3】放行后第三次导出
+curl -D headers3.txt -o export3.csv http://localhost:3001/api/precheck/csv/export?date=2026-06-16 \
+  -H 'Authorization: Bearer ADMIN_TOKEN'
+HASH3=$(grep -i 'x-snapshot-hash' headers3.txt | tr -d '\r' | awk -F': ' '{print $2}')
+echo "放行后哈希 = $HASH3"
+
+# 8. 【关键对比】三个哈希全不一样（pending→frozen→released，每条都有差异）
+if [ "$HASH1" != "$HASH2" ] && [ "$HASH2" != "$HASH3" ] && [ "$HASH1" != "$HASH3" ]; then
+  echo "✅ 全部通过：三次导出哈希互不相同，快照机制有效"
+else
+  echo "❌ 失败：存在两次导出哈希相同的情况，导出内容不随状态变化"
+fi
+
+# 9. 打开三份 CSV 肉眼核对：
+#    export1.csv → 第1行状态=「待核验」，冻结原因=空
+#    export2.csv → 第1行状态=「已冻结」，冻结原因=「知情同意书未签字...」
+#    export3.csv → 第1行状态=「已放行」，放行说明=「材料已补齐同意书已签」
+#    同时三份文件中「化验/影像/知情/禁食」列的值也会根据勾选状态在 export2/export3 中变化。
+```
 
 ---
 

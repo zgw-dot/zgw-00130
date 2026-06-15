@@ -101,7 +101,7 @@ const precheckService = {
 
     const tx = db.transaction(() => {
       for (const appt of appointments) {
-        if (appointment.status === 'cancelled') {
+        if (appt.status === 'cancelled') {
           results.skipped++;
           continue;
         }
@@ -379,7 +379,6 @@ const precheckService = {
 
     logAudit(req, {
       action: 'precheck_config_update',
-      entityType: 'precheck_config',
       entityType: 'precheck_config',
       oldValue: { [key]: oldVal },
       newValue: { [key]: value },
