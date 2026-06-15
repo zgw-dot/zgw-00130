@@ -1,0 +1,98 @@
+{
+  "id": "record_2026-06-15T13-05-36-693Z",
+  "timestamp": 1781528736718,
+  "timestampISO": "2026-06-15T13:05:36.718Z",
+  "command": "node smoke_test.js --no-restart",
+  "argv": [
+    "--no-restart"
+  ],
+  "finalResult": "fail_round1",
+  "failCode": 2,
+  "failReason": "第一轮失败: 端口 3001 被占用",
+  "exitCode": 2,
+  "durationMs": 17,
+  "port": 3001,
+  "restartPort": 3002,
+  "dataDirs": [
+    "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\tmp_smoke_48404_1"
+  ],
+  "logPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_logs\\smoke_2026-06-15T13-05-36-693Z.log",
+  "recordPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_records\\record_2026-06-15T13-05-36-693Z.json",
+  "rounds": [
+    {
+      "label": "第一轮（首次启动）",
+      "port": 3001,
+      "dataDir": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\tmp_smoke_48404_1",
+      "ok": false,
+      "failCode": 2,
+      "failReason": "端口 3001 被占用",
+      "duration": 15,
+      "steps": {
+        "port_check": {
+          "ok": false,
+          "duration": 0
+        }
+      },
+      "smoke": null,
+      "durationMs": 15,
+      "healthCheck": null,
+      "seed": null
+    }
+  ],
+  "tempDirs": [
+    "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\tmp_smoke_48404_1"
+  ],
+  "steps": null,
+  "install": null,
+  "paramsTrace": {
+    "port": 3001,
+    "restartPort": 3002,
+    "dataDir": [
+      "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\tmp_smoke_48404_1"
+    ],
+    "skipInstall": false,
+    "noRestart": true,
+    "keepData": false,
+    "skipSmoke": false,
+    "roundCount": 1,
+    "roundResults": [
+      {
+        "label": "第一轮（首次启动）",
+        "ok": false,
+        "port": 3001,
+        "dataDir": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\tmp_smoke_48404_1",
+        "failCode": 2,
+        "failReason": "端口 3001 被占用"
+      }
+    ]
+  },
+  "artifacts": {
+    "log": {
+      "label": "日志文件",
+      "expectedPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_logs\\smoke_2026-06-15T13-05-36-693Z.log",
+      "actualPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_logs\\smoke_2026-06-15T13-05-36-693Z.log",
+      "exists": true,
+      "sizeBytes": 518,
+      "reason": null,
+      "stage": "final_summary"
+    },
+    "record": {
+      "label": "运行记录",
+      "expectedPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_records\\record_2026-06-15T13-05-36-693Z.json",
+      "actualPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_records\\record_2026-06-15T13-05-36-693Z.json",
+      "exists": true,
+      "sizeBytes": 1951,
+      "reason": null,
+      "stage": "final_summary"
+    },
+    "json": {
+      "label": "JSON摘要",
+      "expectedPath": null,
+      "actualPath": null,
+      "exists": false,
+      "sizeBytes": null,
+      "reason": "未指定",
+      "stage": "final_summary"
+    }
+  }
+}
