@@ -84,6 +84,78 @@ function generateNotificationContent(type, record, extra = {}) {
   }
 }
 
+function normalizeAppointment(appt) {
+  return {
+    id: appt.id || appt.appointment_id || appt.appointmentId,
+    patient_id: appt.patient_id || appt.patientId,
+    patient_name: appt.patient_name || appt.patientName || '',
+    slot_id: appt.slot_id || appt.slotId,
+    date: appt.date || appt.slot_date || appt.checkDate || appt.check_date,
+    period: appt.period,
+    status: appt.status || appt.appointment_status || 'booked',
+    doctor_name: appt.doctor_name || appt.doctorName || '',
+    time_start: appt.time_start || ''
+  };
+}
+
+function processImportBatch(appointments, { batchNo, createdBy, checkDate = null }) {
+  const results = { imported: 0, skipped: 0, conflicts: [], batchNo };
+
+  const tx = db.transaction(() => {
+    for (const rawAppt of appointments) {
+      const appt = normalizeAppointment(rawAppt);
+      const date = checkDate || appt.date;
+
+      if (appt.status === 'cancelled') {
+        results.skipped++;
+        continue;
+      }
+
+      const existing = dao.getByAppointmentId(appt.id);
+      if (existing) {
+        results.skipped++;
+        continue;
+      }
+
+      if (!appt.patient_id || !appt.slot_id || !date || !appt.period) {
+        results.skipped++;
+        continue;
+      }
+
+      const dupCount = dao.checkDuplicateByHalfDay(appt.patient_id, date, appt.period);
+      if (dupCount > 0) {
+        const conflicts = dao.listConflictingRecords(appt.patient_id, date, appt.period);
+        const conflictInfo = conflicts.length > 0 ? conflicts[0] : null;
+        results.conflicts.push({
+          patientName: appt.patient_name,
+          patientId: appt.patient_id,
+          appointmentId: appt.id,
+          date,
+          period: appt.period,
+          existingDoctor: conflictInfo?.doctor_name || '',
+          existingTime: conflictInfo?.time_start || '',
+          reason: `同一患者${date}${appt.period === 'morning' ? '上午' : appt.period === 'afternoon' ? '下午' : '晚上'}已存在待处理核验记录（${conflictInfo?.doctor_name || '未知医生'} ${conflictInfo?.time_start || ''}）`
+        });
+        results.skipped++;
+        continue;
+      }
+
+      dao.insertOrUpdateRecord({
+        appointmentId: appt.id,
+        patientId: appt.patient_id,
+        slotId: appt.slot_id,
+        checkDate: date,
+        importBatch: batchNo,
+        createdBy
+      });
+      results.imported++;
+    }
+  });
+
+  tx();
+  return results;
+}
+
 const precheckService = {
   importByDate(req, date) {
     if (!date) throw bizError('请指定导入日期');
@@ -94,58 +166,49 @@ const precheckService = {
     const batchNo = generateBatchNo();
     const appointments = dao.listAppointmentsForImport(date);
     if (appointments.length === 0) {
-      return { imported: 0, skipped: 0, batchNo, message: '该日期没有待处理的预约' };
+      return { imported: 0, skipped: 0, batchNo, total: 0, message: '该日期没有待处理的预约' };
     }
 
-    const results = { imported: 0, skipped: 0, conflicts: [], batchNo };
-
-    const tx = db.transaction(() => {
-      for (const appt of appointments) {
-        if (appt.status === 'cancelled') {
-          results.skipped++;
-          continue;
-        }
-
-        const existing = dao.getByAppointmentId(appt.id);
-        if (existing) {
-          if (['cancelled', 'checked_in', 'frozen'].includes(existing.status)) {
-            results.skipped++;
-            continue;
-          }
-          results.skipped++;
-          continue;
-        }
-
-        const dupCount = dao.checkDuplicateExecutable(appt.patient_id, appt.slot_id);
-        if (dupCount > 0) {
-          results.conflicts.push({
-            patientName: appt.patient_name,
-            appointmentId: appt.id,
-            reason: '同一患者同一时段已存在可执行预约'
-          });
-          results.skipped++;
-          continue;
-        }
-
-        dao.insertOrUpdateRecord({
-          appointmentId: appt.id,
-          patientId: appt.patient_id,
-          slotId: appt.slot_id,
-          checkDate: date,
-          importBatch: batchNo,
-          createdBy: req.user.id
-        });
-        results.imported++;
-      }
+    const results = processImportBatch(appointments, {
+      batchNo,
+      createdBy: req.user.id,
+      checkDate: date
     });
-
-    tx();
+    results.total = appointments.length;
+    if (appointments.length === results.skipped && results.imported === 0) {
+      results.message = '该日期预约已全部导入或存在冲突';
+    }
 
     logAudit(req, {
       action: 'precheck_import',
       entityType: 'precheck',
       newValue: { date, batchNo, ...results },
       reason: `按日期 ${date} 导入术前核验待办，批次 ${batchNo}`
+    });
+
+    return results;
+  },
+
+  importAppointments(req, appointments) {
+    if (!canUserPerform(req.user, 'import')) {
+      throw permError('您没有导入术前核验数据的权限');
+    }
+    if (!appointments || appointments.length === 0) {
+      throw bizError('没有可导入的预约');
+    }
+
+    const batchNo = generateBatchNo();
+    const results = processImportBatch(appointments, {
+      batchNo,
+      createdBy: req.user.id
+    });
+    results.total = appointments.length;
+
+    logAudit(req, {
+      action: 'precheck_import_batch',
+      entityType: 'precheck',
+      newValue: { batchNo, ...results },
+      reason: `批量导入术前核验待办 ${appointments.length} 条，批次 ${batchNo}`
     });
 
     return results;

@@ -1,4 +1,5 @@
 const { dao } = require('./precheckDao');
+const precheckService = require('./precheckService');
 const { logAudit } = require('./audit');
 const fs = require('fs');
 const path = require('path');
@@ -109,6 +110,39 @@ const csvHandlers = {
       results.valid.push({ appointmentId: apptId, raw: row });
     }
     return results;
+  },
+
+  importFromCsv(req, content) {
+    const parsed = csvHandlers.parseImportList(content);
+    if (parsed.valid.length === 0) {
+      return {
+        ...parsed,
+        imported: 0,
+        skipped: 0,
+        conflicts: [],
+        message: parsed.invalid.length > 0 ? 'CSV 中没有有效的预约ID' : 'CSV 为空'
+      };
+    }
+
+    const appointmentIds = parsed.valid.map(v => v.appointmentId);
+    const appointments = appointmentIds
+      .map(id => dao.getAppointmentById(id))
+      .filter(a => a !== undefined && a !== null);
+
+    const validIds = new Set(appointments.map(a => a.id));
+    const notFound = parsed.valid.filter(v => !validIds.has(v.appointmentId));
+    const invalidExtra = notFound.map(v => ({
+      line: v.raw.__line || 0,
+      row: v.raw,
+      error: `预约ID ${v.appointmentId} 不存在`
+    }));
+
+    const result = precheckService.importAppointments(req, appointments);
+    result.parsed = parsed.parsed;
+    result.invalid = [...parsed.invalid, ...invalidExtra];
+    result.validCount = appointments.length;
+
+    return result;
   },
 
   exportRecordsByFilter(req, options = {}) {

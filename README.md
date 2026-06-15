@@ -404,7 +404,7 @@ zgw-00130/
 | 跨医生改期 | 可配置 `reschedule_allow_cross_doctor` 开关控制 |
 | 术前核验必填项 | 4 项核验项（化验/影像/知情/禁食）各自独立开关，`precheck_*_required` |
 | 术前核验强制放行权限 | 可配置 `precheck_force_release_role` 为 admin 或 clerk |
-| 术前核验重复冲突 | 导入时检查同一患者同一时段不能有两条可执行预约（pending/verified/released/force_released） |
+| 术前核验重复冲突 | 导入时检查同一患者同一半天（同日期+同时段）不能有两条可流转记录（pending/verified/frozen/released/force_released），跨号源也会被拦截 |
 | 术前核验状态机 | pending→verified→frozen→released→revoked，状态流转校验不允许跳步 |
 | 术前核验冻结原因 | 冻结、撤销必须提供非空真实原因，前后端双重校验，无默认兜底文案 |
 | 术前核验导出一致性 | 每次导出写入快照哈希（MD5），`precheck_exports` 表持久化记录方便对账 |

@@ -186,18 +186,48 @@ const dao = {
     `).run(updatedBy, now, id);
   },
 
-  checkDuplicateExecutable(patientId, slotId, excludeId = null) {
+  checkDuplicateByHalfDay(patientId, date, period, excludeId = null) {
     let sql = `
-      SELECT COUNT(*) AS cnt FROM precheck_records
-      WHERE patient_id = ? AND slot_id = ?
-        AND status IN ('pending', 'verified', 'released', 'force_released')
+      SELECT COUNT(*) AS cnt FROM precheck_records p
+      JOIN slots s ON p.slot_id = s.id
+      WHERE p.patient_id = ?
+        AND s.date = ?
+        AND s.period = ?
+        AND p.status IN ('pending', 'verified', 'frozen', 'released', 'force_released')
     `;
-    const params = [patientId, slotId];
+    const params = [patientId, date, period];
     if (excludeId) {
-      sql += ' AND id != ?';
+      sql += ' AND p.id != ?';
       params.push(excludeId);
     }
     return db.prepare(sql).get(...params).cnt;
+  },
+
+  checkDuplicateExecutable(patientId, slotId, excludeId = null) {
+    const slot = db.prepare('SELECT date, period FROM slots WHERE id = ?').get(slotId);
+    if (!slot) return 0;
+    return dao.checkDuplicateByHalfDay(patientId, slot.date, slot.period, excludeId);
+  },
+
+  listConflictingRecords(patientId, date, period, excludeId = null) {
+    let sql = `
+      SELECT p.*, s.date AS slot_date, s.period, s.time_start, s.time_end,
+        d.name AS doctor_name, d.department
+      FROM precheck_records p
+      JOIN slots s ON p.slot_id = s.id
+      JOIN doctors d ON s.doctor_id = d.id
+      WHERE p.patient_id = ?
+        AND s.date = ?
+        AND s.period = ?
+        AND p.status IN ('pending', 'verified', 'frozen', 'released', 'force_released')
+    `;
+    const params = [patientId, date, period];
+    if (excludeId) {
+      sql += ' AND p.id != ?';
+      params.push(excludeId);
+    }
+    sql += ' ORDER BY p.created_at ASC';
+    return db.prepare(sql).all(...params);
   },
 
   addNotification(params) {

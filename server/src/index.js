@@ -1054,6 +1054,15 @@ app.post('/api/precheck/csv/import', authMiddleware, (req, res, next) => {
   try {
     const { content } = req.body || {};
     if (!content) return res.status(400).json({ error: '请提供 CSV 内容' });
+    const result = precheckCsv.importFromCsv(req, content);
+    res.json(result);
+  } catch (e) { next(e); }
+});
+
+app.post('/api/precheck/csv/parse', authMiddleware, (req, res, next) => {
+  try {
+    const { content } = req.body || {};
+    if (!content) return res.status(400).json({ error: '请提供 CSV 内容' });
     const result = precheckCsv.parseImportList(content);
     res.json(result);
   } catch (e) { next(e); }
