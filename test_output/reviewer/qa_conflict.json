@@ -1,0 +1,105 @@
+{
+  "id": "record_2026-06-15T07-22-13-250Z",
+  "timestamp": 1781508133263,
+  "timestampISO": "2026-06-15T07:22:13.263Z",
+  "command": "node smoke_test.js --port 3813 --restart-port 3814 --skip-install --json D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\test_output\\reviewer\\qa_conflict.json",
+  "argv": [
+    "--port",
+    "3813",
+    "--restart-port",
+    "3814",
+    "--skip-install",
+    "--json",
+    "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\test_output\\reviewer\\qa_conflict.json"
+  ],
+  "finalResult": "fail_round1",
+  "failCode": 2,
+  "failReason": "第一轮失败: 端口 3813 被占用",
+  "exitCode": 2,
+  "durationMs": 31,
+  "port": 3813,
+  "restartPort": 3814,
+  "dataDirs": [
+    "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\tmp_smoke_50956_1"
+  ],
+  "logPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_logs\\smoke_2026-06-15T07-22-13-250Z.log",
+  "recordPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_records\\record_2026-06-15T07-22-13-250Z.json",
+  "rounds": [
+    {
+      "label": "第一轮（首次启动）",
+      "port": 3813,
+      "dataDir": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\tmp_smoke_50956_1",
+      "ok": false,
+      "failCode": 2,
+      "failReason": "端口 3813 被占用",
+      "duration": 30,
+      "steps": {
+        "port_check": {
+          "ok": false,
+          "duration": 0
+        }
+      },
+      "smoke": null,
+      "durationMs": 30,
+      "healthCheck": null,
+      "seed": null
+    }
+  ],
+  "tempDirs": [
+    "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\tmp_smoke_50956_1"
+  ],
+  "steps": null,
+  "install": null,
+  "paramsTrace": {
+    "port": 3813,
+    "restartPort": 3814,
+    "dataDir": [
+      "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\tmp_smoke_50956_1"
+    ],
+    "skipInstall": true,
+    "noRestart": false,
+    "keepData": false,
+    "skipSmoke": false,
+    "roundCount": 1,
+    "roundResults": [
+      {
+        "label": "第一轮（首次启动）",
+        "ok": false,
+        "port": 3813,
+        "dataDir": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\tmp_smoke_50956_1",
+        "failCode": 2,
+        "failReason": "端口 3813 被占用"
+      }
+    ]
+  },
+  "jsonPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\test_output\\reviewer\\qa_conflict.json",
+  "artifacts": {
+    "log": {
+      "label": "日志文件",
+      "expectedPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_logs\\smoke_2026-06-15T07-22-13-250Z.log",
+      "actualPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_logs\\smoke_2026-06-15T07-22-13-250Z.log",
+      "exists": true,
+      "sizeBytes": 642,
+      "reason": null,
+      "stage": "final_summary"
+    },
+    "record": {
+      "label": "运行记录",
+      "expectedPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_records\\record_2026-06-15T07-22-13-250Z.json",
+      "actualPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_records\\record_2026-06-15T07-22-13-250Z.json",
+      "exists": true,
+      "sizeBytes": 2249,
+      "reason": null,
+      "stage": "final_summary"
+    },
+    "json": {
+      "label": "JSON摘要",
+      "expectedPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\test_output\\reviewer\\qa_conflict.json",
+      "actualPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\test_output\\reviewer\\qa_conflict.json",
+      "exists": true,
+      "sizeBytes": 2353,
+      "reason": null,
+      "stage": "final_summary"
+    }
+  }
+}

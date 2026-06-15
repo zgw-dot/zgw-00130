@@ -158,10 +158,34 @@ function showHistory(n) {
       if (data.failReason) {
         console.log(`    失败原因: ${data.failReason}`);
       }
-      console.log(`    日志: ${data.logPath || '-'}`);
-      console.log(`    记录: ${data.recordPath || '-'}`);
-      if (data.jsonPath) {
-        console.log(`    JSON: ${data.jsonPath}`);
+      const pt = data.paramsTrace;
+      if (pt) {
+        console.log(`    参数追溯: port=${pt.port} restart-port=${pt.restartPort} skipInstall=${!!pt.skipInstall} noRestart=${!!pt.noRestart}`);
+        if (pt.dataDir && pt.dataDir.length > 0) {
+          console.log(`    数据目录: ${pt.dataDir.join(', ')}`);
+        }
+        if (pt.roundResults && pt.roundResults.length > 0) {
+          for (const rr of pt.roundResults) {
+            const ricon = rr.ok ? '✅' : '❌';
+            const rf = rr.failCode ? ` (${failCodeToString(rr.failCode)})` : '';
+            console.log(`      ${ricon} ${rr.label} 端口=${rr.port} 数据=${rr.dataDir || '-'} 结果=${rr.ok ? 'PASS' : 'FAIL' + rf}`);
+          }
+        }
+      }
+      const art = data.artifacts;
+      if (art) {
+        const fmt = (a) => {
+          if (!a) return '(无)';
+          if (a.exists) return `✅ ${a.actualPath} (${a.sizeBytes}B)`;
+          return `❌ ${a.reason || '未创建'} (期望: ${a.expectedPath || '-'})`;
+        };
+        console.log(`    产物-日志: ${art.log ? fmt(art.log) : '-'}`);
+        console.log(`    产物-记录: ${art.record ? fmt(art.record) : '-'}`);
+        if (art.json) console.log(`    产物-JSON: ${fmt(art.json)}`);
+      } else {
+        console.log(`    日志: ${data.logPath || '-'}`);
+        console.log(`    记录: ${data.recordPath || '-'}`);
+        if (data.jsonPath) console.log(`    JSON: ${data.jsonPath}`);
       }
       console.log('');
     } catch (_) {

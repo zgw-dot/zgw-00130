@@ -162,18 +162,28 @@ class Logger {
     this.startedAt = Date.now();
     const dir = path.dirname(logPath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    this.stream = fs.createWriteStream(logPath, { flags: 'w' });
+    fs.writeFileSync(logPath, '', { flag: 'w' });
   }
   _ts() {
     const d = new Date();
     const pad = (n) => String(n).padStart(2, '0');
     return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${String(d.getMilliseconds()).padStart(3, '0')}`;
   }
-  info(msg) { const line = `[${this._ts()}] INFO  ${msg}`; console.log(line); this.lines.push(line); this.stream.write(line + '\n'); }
-  warn(msg) { const line = `[${this._ts()}] WARN  ${msg}`; console.log(line); this.lines.push(line); this.stream.write(line + '\n'); }
-  error(msg) { const line = `[${this._ts()}] ERROR ${msg}`; console.error(line); this.lines.push(line); this.stream.write(line + '\n'); }
-  step(msg)  { const sep = '='.repeat(6); const line = `\n${sep} ${msg} ${sep}`; console.log(line); this.lines.push(line); this.stream.write(line + '\n'); }
-  close() { try { this.stream.end(); } catch (_) {} return this.lines; }
+  _write(line) {
+    console.log(line);
+    this.lines.push(line);
+    fs.appendFileSync(this.logPath, line + '\n');
+  }
+  _writeErr(line) {
+    console.error(line);
+    this.lines.push(line);
+    fs.appendFileSync(this.logPath, line + '\n');
+  }
+  info(msg) { const line = `[${this._ts()}] INFO  ${msg}`; this._write(line); }
+  warn(msg) { const line = `[${this._ts()}] WARN  ${msg}`; this._write(line); }
+  error(msg) { const line = `[${this._ts()}] ERROR ${msg}`; this._writeErr(line); }
+  step(msg)  { const sep = '='.repeat(6); const line = `\n${sep} ${msg} ${sep}`; this._write(line); }
+  close() { return this.lines; }
 }
 
 function httpRequest(method, urlStr, data, token, timeoutMs) {
@@ -590,6 +600,47 @@ function writeUnifiedRunRecord(unified) {
   }
 }
 
+function verifyArtifact(label, expectedPath, stageWhenExpected) {
+  const result = {
+    label,
+    expectedPath: expectedPath || null,
+    actualPath: null,
+    exists: false,
+    sizeBytes: null,
+    reason: null,
+    stage: stageWhenExpected || null,
+  };
+  if (!expectedPath) {
+    result.reason = '未指定';
+    return result;
+  }
+  try {
+    if (fs.existsSync(expectedPath)) {
+      const stat = fs.statSync(expectedPath);
+      if (stat.isFile()) {
+        result.exists = true;
+        result.actualPath = expectedPath;
+        result.sizeBytes = stat.size;
+      } else {
+        result.reason = '路径存在但不是文件';
+      }
+    } else {
+      result.reason = '文件未创建（失败发生在写入前）';
+    }
+  } catch (e) {
+    result.reason = `检查失败: ${e.message}`;
+  }
+  return result;
+}
+
+function verifyAllArtifacts(logPath, recordPath, jsonPath, stageWhenExpected) {
+  return {
+    log: verifyArtifact('日志文件', logPath, stageWhenExpected || 'early'),
+    record: verifyArtifact('运行记录', recordPath, stageWhenExpected || 'summary'),
+    json: verifyArtifact('JSON摘要', jsonPath, stageWhenExpected || 'summary'),
+  };
+}
+
 function buildUnifiedSummary(partial, args, stamp, logPath) {
   const cmd = process.argv;
   const command = `node smoke_test.js ${process.argv.slice(2).join(' ')}`;
@@ -624,6 +675,19 @@ function buildUnifiedSummary(partial, args, stamp, logPath) {
       seed: r.seed != null ? r.seed : (steps.seed || null),
     };
   });
+  const firstRoundSteps = normalizedRounds.length > 0 ? normalizedRounds[0] : null;
+  const skipInstall = firstRoundSteps && firstRoundSteps.steps && firstRoundSteps.steps.install
+    ? firstRoundSteps.steps.install.skipped
+    : (args && args.skipInstall != null ? args.skipInstall : false);
+  const roundResults = normalizedRounds.map(r => ({
+    label: r.label,
+    ok: r.ok,
+    port: r.port,
+    dataDir: r.dataDir,
+    failCode: r.failCode || 0,
+    failReason: r.failReason || null,
+  }));
+
   const summary = {
     id: `record_${stamp}`,
     timestamp: partial.startedAt || Date.now(),
@@ -646,6 +710,17 @@ function buildUnifiedSummary(partial, args, stamp, logPath) {
     install: partial.install || (normalizedRounds.length > 0 && normalizedRounds[0].steps && normalizedRounds[0].steps.install
       ? normalizedRounds[0].steps.install
       : null),
+    paramsTrace: {
+      port: partial.port != null ? partial.port : (args && args.port != null ? args.port : DEFAULT_PORT),
+      restartPort: partial.restartPort != null ? partial.restartPort : (args && args.restartPort != null ? args.restartPort : 3002),
+      dataDir: dataDirs.length > 0 ? dataDirs : (args && args.dataDir ? [args.dataDir] : []),
+      skipInstall,
+      noRestart: args && args.noRestart != null ? args.noRestart : false,
+      keepData: args && args.keepData != null ? args.keepData : false,
+      skipSmoke: args && args.skipSmoke != null ? args.skipSmoke : false,
+      roundCount: normalizedRounds.length,
+      roundResults,
+    },
   };
   return summary;
 }
@@ -693,6 +768,22 @@ function printUnifiedSummary(summary, logger, jsonPathWritten) {
     err(`失败原因: ${summary.failReason || '(无)'}`);
   }
 
+  const pt = summary.paramsTrace;
+  if (pt) {
+    step('参数追溯');
+    log(`端口配置: port=${pt.port}  restart-port=${pt.restartPort}`);
+    log(`数据目录: ${pt.dataDir && pt.dataDir.length > 0 ? pt.dataDir.join(', ') : '(自动生成)'}`);
+    log(`开关: skipInstall=${!!pt.skipInstall}  noRestart=${!!pt.noRestart}  keepData=${!!pt.keepData}  skipSmoke=${!!pt.skipSmoke}`);
+    log(`轮次: 共 ${pt.roundCount} 轮`);
+    if (pt.roundResults && pt.roundResults.length > 0) {
+      for (const rr of pt.roundResults) {
+        const ricon = rr.ok ? '✅' : '❌';
+        const rf = rr.failCode ? ` (${failCodeToString(rr.failCode)})` : '';
+        log(`  ${ricon} ${rr.label} 端口=${rr.port} 数据=${rr.dataDir || '-'} 结果=${rr.ok ? 'PASS' : 'FAIL' + rf}`);
+      }
+    }
+  }
+
   if (summary.rounds && summary.rounds.length > 0) {
     step('各轮次明细');
     for (const r of summary.rounds) {
@@ -711,11 +802,26 @@ function printUnifiedSummary(summary, logger, jsonPathWritten) {
     }
   }
 
-  step('对账路径');
-  log(`日志路径 logPath: ${summary.logPath}`);
-  log(`记录路径 recordPath: ${summary.recordPath}`);
-  if (summary.jsonPath || jsonPathWritten) {
-    log(`JSON 摘要 jsonPath: ${summary.jsonPath || jsonPathWritten}`);
+  step('产物落盘凭证');
+  const art = summary.artifacts;
+  if (art) {
+    const fmt = (a) => {
+      if (!a) return '  (无)';
+      if (a.exists) {
+        return `  ✅ ${a.label}: ${a.actualPath} (${a.sizeBytes} bytes)`;
+      } else {
+        return `  ❌ ${a.label}: ${a.reason || '未创建'} (期望: ${a.expectedPath || '-'}, 阶段: ${a.stage || '-'})`;
+      }
+    };
+    if (art.log) log(fmt(art.log));
+    if (art.record) log(fmt(art.record));
+    if (art.json) log(fmt(art.json));
+  } else {
+    log(`日志路径 logPath: ${summary.logPath}`);
+    log(`记录路径 recordPath: ${summary.recordPath}`);
+    if (summary.jsonPath || jsonPathWritten) {
+      log(`JSON 摘要 jsonPath: ${summary.jsonPath || jsonPathWritten}`);
+    }
   }
   log('--- 摘要结束 ---');
 }
@@ -766,10 +872,16 @@ async function main() {
       const unified = buildUnifiedSummary(rawSummary, args, stamp, logPath);
       writeUnifiedRunRecord(unified);
       const jsonPathWritten = exportJsonSummary(args.json, unified, logger);
-      if (jsonPathWritten) {
-        unified.jsonPath = jsonPathWritten;
-        writeUnifiedRunRecord(unified);
-      }
+      if (jsonPathWritten) unified.jsonPath = jsonPathWritten;
+
+      unified.artifacts = verifyAllArtifacts(
+        unified.logPath,
+        unified.recordPath,
+        unified.jsonPath,
+        'early_validation'
+      );
+      writeUnifiedRunRecord(unified);
+      if (jsonPathWritten) exportJsonSummary(args.json, unified, logger);
       printUnifiedSummary(unified, logger, jsonPathWritten);
 
       logger.close();
@@ -827,10 +939,34 @@ async function main() {
         if (data.failReason) {
           console.log(`    失败原因: ${data.failReason}`);
         }
-        console.log(`    日志: ${data.logPath || '-'}`);
-        console.log(`    记录: ${data.recordPath || '-'}`);
-        if (data.jsonPath) {
-          console.log(`    JSON: ${data.jsonPath}`);
+        const pt = data.paramsTrace;
+        if (pt) {
+          console.log(`    参数追溯: port=${pt.port} restart-port=${pt.restartPort} skipInstall=${!!pt.skipInstall} noRestart=${!!pt.noRestart}`);
+          if (pt.dataDir && pt.dataDir.length > 0) {
+            console.log(`    数据目录: ${pt.dataDir.join(', ')}`);
+          }
+          if (pt.roundResults && pt.roundResults.length > 0) {
+            for (const rr of pt.roundResults) {
+              const ricon = rr.ok ? '✅' : '❌';
+              const rf = rr.failCode ? ` (${failCodeToString(rr.failCode)})` : '';
+              console.log(`      ${ricon} ${rr.label} 端口=${rr.port} 数据=${rr.dataDir || '-'} 结果=${rr.ok ? 'PASS' : 'FAIL' + rf}`);
+            }
+          }
+        }
+        const art = data.artifacts;
+        if (art) {
+          const fmt = (a) => {
+            if (!a) return '(无)';
+            if (a.exists) return `✅ ${a.actualPath} (${a.sizeBytes}B)`;
+            return `❌ ${a.reason || '未创建'} (期望: ${a.expectedPath || '-'})`;
+          };
+          console.log(`    产物-日志: ${art.log ? fmt(art.log) : '-'}`);
+          console.log(`    产物-记录: ${art.record ? fmt(art.record) : '-'}`);
+          if (art.json) console.log(`    产物-JSON: ${fmt(art.json)}`);
+        } else {
+          console.log(`    日志: ${data.logPath || '-'}`);
+          console.log(`    记录: ${data.recordPath || '-'}`);
+          if (data.jsonPath) console.log(`    JSON: ${data.jsonPath}`);
         }
         console.log('');
       } catch (_) {
@@ -989,7 +1125,15 @@ async function main() {
   }
   const jsonPathWritten = exportJsonSummary(args.json, unified, logger);
   if (jsonPathWritten) unified.jsonPath = jsonPathWritten;
+
+  unified.artifacts = verifyAllArtifacts(
+    unified.logPath,
+    unified.recordPath,
+    unified.jsonPath,
+    'final_summary'
+  );
   writeUnifiedRunRecord(unified);
+  if (jsonPathWritten) exportJsonSummary(args.json, unified, logger);
   printUnifiedSummary(unified, logger, jsonPathWritten);
 
   logger.close();
@@ -1000,6 +1144,7 @@ main().catch((e) => {
   const failCode = FAIL.UNKNOWN;
   const failReason = e && e.message ? e.message : String(e);
   console.error(`[致命] 顶层异常:`, e && e.stack ? e.stack : e);
+  let logger = null;
   try {
     const ts = new Date().toISOString().replace(/[:.]/g, '-');
     const recDir = path.join(__dirname, 'smoke_records');
@@ -1008,6 +1153,9 @@ main().catch((e) => {
     if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
     const recPath = path.join(recDir, `record_${ts}.json`);
     const logPath = path.join(logDir, `smoke_${ts}.log`);
+
+    logger = new Logger(logPath);
+    logger.error(`[致命] 顶层异常: ${e && e.stack ? e.stack : e}`);
 
     const rawSummary = {
       startedAt: Date.now(),
@@ -1037,8 +1185,19 @@ main().catch((e) => {
     const unified = buildUnifiedSummary(rawSummary, args || {}, ts, logPath);
     unified.timestampISO = new Date().toISOString();
     unified.exitCode = failCode;
+
     writeUnifiedRunRecord(unified);
-    printUnifiedSummary(unified, null, null);
+
+    unified.artifacts = verifyAllArtifacts(
+      unified.logPath,
+      unified.recordPath,
+      unified.jsonPath,
+      'fatal_catch'
+    );
+    writeUnifiedRunRecord(unified);
+
+    printUnifiedSummary(unified, logger, null);
+    if (logger) logger.close();
   } catch (_) {}
   process.exit(failCode);
 });

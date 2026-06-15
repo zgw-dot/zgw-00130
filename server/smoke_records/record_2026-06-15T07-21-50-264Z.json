@@ -1,0 +1,100 @@
+{
+  "id": "record_2026-06-15T07-21-50-264Z",
+  "timestamp": 1781508110269,
+  "timestampISO": "2026-06-15T07:21:50.269Z",
+  "command": "node smoke_test.js --port 3815 --restart-port 3816 --skip-install --data-dir D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\review-bad\\as-file.txt --json D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\test_output\\reviewer\\qa_invalid.json",
+  "argv": [
+    "--port",
+    "3815",
+    "--restart-port",
+    "3816",
+    "--skip-install",
+    "--data-dir",
+    "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\review-bad\\as-file.txt",
+    "--json",
+    "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\test_output\\reviewer\\qa_invalid.json"
+  ],
+  "finalResult": "fail_invalid_data_dir",
+  "failCode": 8,
+  "failReason": "data-dir 参数指向一个文件而非目录: D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\review-bad\\as-file.txt",
+  "exitCode": 8,
+  "durationMs": 0,
+  "port": 3815,
+  "restartPort": 3816,
+  "dataDirs": [
+    "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\review-bad\\as-file.txt"
+  ],
+  "logPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_logs\\smoke_2026-06-15T07-21-50-264Z.log",
+  "recordPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_records\\record_2026-06-15T07-21-50-264Z.json",
+  "rounds": [
+    {
+      "label": "参数校验",
+      "port": 3815,
+      "dataDir": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\review-bad\\as-file.txt",
+      "ok": false,
+      "failCode": 8,
+      "failReason": "data-dir 参数指向一个文件而非目录: D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\review-bad\\as-file.txt",
+      "durationMs": 0,
+      "duration": 0,
+      "steps": {},
+      "smoke": null,
+      "healthCheck": null,
+      "seed": null
+    }
+  ],
+  "tempDirs": [],
+  "steps": null,
+  "install": null,
+  "paramsTrace": {
+    "port": 3815,
+    "restartPort": 3816,
+    "dataDir": [
+      "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\review-bad\\as-file.txt"
+    ],
+    "skipInstall": true,
+    "noRestart": false,
+    "keepData": false,
+    "skipSmoke": false,
+    "roundCount": 1,
+    "roundResults": [
+      {
+        "label": "参数校验",
+        "ok": false,
+        "port": 3815,
+        "dataDir": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\review-bad\\as-file.txt",
+        "failCode": 8,
+        "failReason": "data-dir 参数指向一个文件而非目录: D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\review-bad\\as-file.txt"
+      }
+    ]
+  },
+  "jsonPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\test_output\\reviewer\\qa_invalid.json",
+  "artifacts": {
+    "log": {
+      "label": "日志文件",
+      "expectedPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_logs\\smoke_2026-06-15T07-21-50-264Z.log",
+      "actualPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_logs\\smoke_2026-06-15T07-21-50-264Z.log",
+      "exists": true,
+      "sizeBytes": 336,
+      "reason": null,
+      "stage": "early_validation"
+    },
+    "record": {
+      "label": "运行记录",
+      "expectedPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_records\\record_2026-06-15T07-21-50-264Z.json",
+      "actualPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_records\\record_2026-06-15T07-21-50-264Z.json",
+      "exists": true,
+      "sizeBytes": 2495,
+      "reason": null,
+      "stage": "early_validation"
+    },
+    "json": {
+      "label": "JSON摘要",
+      "expectedPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\test_output\\reviewer\\qa_invalid.json",
+      "actualPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\test_output\\reviewer\\qa_invalid.json",
+      "exists": true,
+      "sizeBytes": 2598,
+      "reason": null,
+      "stage": "early_validation"
+    }
+  }
+}
