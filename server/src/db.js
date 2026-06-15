@@ -480,6 +480,74 @@ proxy.initTables = () => {
       created_by INTEGER NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS precheck_records (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      appointment_id INTEGER NOT NULL,
+      patient_id INTEGER NOT NULL,
+      slot_id INTEGER NOT NULL,
+      check_date TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'verified', 'frozen', 'released', 'force_released', 'revoked', 'cancelled', 'checked_in')),
+      lab_result BOOLEAN NOT NULL DEFAULT 0,
+      lab_note TEXT,
+      imaging_result BOOLEAN NOT NULL DEFAULT 0,
+      imaging_note TEXT,
+      consent_result BOOLEAN NOT NULL DEFAULT 0,
+      consent_note TEXT,
+      fasting_result BOOLEAN NOT NULL DEFAULT 0,
+      fasting_note TEXT,
+      custom_result TEXT,
+      freeze_reason TEXT,
+      release_note TEXT,
+      revoke_reason TEXT,
+      import_batch TEXT,
+      created_by INTEGER,
+      updated_by INTEGER,
+      frozen_by INTEGER,
+      released_by INTEGER,
+      revoked_by INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      frozen_at DATETIME,
+      released_at DATETIME,
+      revoked_at DATETIME,
+      UNIQUE(appointment_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS precheck_rules (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      rule_key TEXT UNIQUE NOT NULL,
+      rule_value TEXT NOT NULL,
+      description TEXT,
+      updated_by INTEGER,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS precheck_notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      precheck_id INTEGER NOT NULL,
+      patient_id INTEGER NOT NULL,
+      appointment_id INTEGER,
+      notification_type TEXT NOT NULL CHECK(notification_type IN ('frozen', 'released', 'force_released', 'revoked', 'doctor_notify')),
+      recipient_role TEXT NOT NULL CHECK(recipient_role IN ('patient', 'doctor', 'clerk', 'admin')),
+      content TEXT NOT NULL,
+      sent_by INTEGER,
+      sent BOOLEAN NOT NULL DEFAULT 0,
+      sent_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS precheck_exports (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      export_type TEXT NOT NULL CHECK(export_type IN ('all', 'frozen', 'verified', 'by_date')),
+      file_name TEXT NOT NULL,
+      file_path TEXT NOT NULL,
+      date_filter TEXT,
+      record_count INTEGER NOT NULL DEFAULT 0,
+      snapshot_hash TEXT,
+      created_by INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   const insertConfig = db.prepare(`INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)`);
@@ -499,7 +567,17 @@ proxy.initTables = () => {
     ['room_lock_allow_clerk_export', 'true'],
     ['reschedule_allow_cross_doctor', 'true'],
     ['reschedule_auto_fill_waitlist', 'true'],
-    ['reschedule_clerk_can_submit', 'true']
+    ['reschedule_clerk_can_submit', 'true'],
+    ['precheck_lab_required', 'true'],
+    ['precheck_imaging_required', 'true'],
+    ['precheck_consent_required', 'true'],
+    ['precheck_fasting_required', 'true'],
+    ['precheck_force_release_role', 'admin'],
+    ['precheck_auto_notify_doctor_on_release', 'true'],
+    ['precheck_clerk_can_import', 'true'],
+    ['precheck_clerk_can_freeze', 'true'],
+    ['precheck_clerk_can_release', 'true'],
+    ['precheck_clerk_can_revoke', 'false']
   ];
   defaults.forEach(([k, v]) => insertConfig.run(k, v));
 

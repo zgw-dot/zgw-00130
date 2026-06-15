@@ -88,4 +88,24 @@ export const rescheduleApi = {
   getSlots: (params) => api.get('/slots', { params })
 }
 
+export const precheckApi = {
+  listRecords: (params) => api.get('/precheck/records', { params }),
+  getRecord: (id) => api.get(`/precheck/records/${id}`),
+  getStats: (date) => api.get('/precheck/stats', { params: { date } }),
+  importByDate: (date) => api.post('/precheck/import', { date }),
+  getImportPreview: (date) => api.get('/precheck/import/preview', { params: { date } }),
+  updateCheckItems: (id, items) => api.put(`/precheck/records/${id}/items`, items),
+  freezeRecord: (id, reason) => api.post(`/precheck/records/${id}/freeze`, { reason }),
+  releaseRecord: (id, releaseNote, force) => api.post(`/precheck/records/${id}/release`, { releaseNote, force }),
+  revokeRecord: (id, reason) => api.post(`/precheck/records/${id}/revoke`, { reason }),
+  getConfig: () => api.get('/precheck/config'),
+  updateConfig: (key, value) => api.put('/precheck/config', { key, value }),
+  getPermissions: () => api.get('/precheck/permissions'),
+  getNotifications: (precheckId) => api.get('/precheck/notifications', { params: { precheckId } }),
+  listExports: () => api.get('/precheck/exports'),
+  exportCsv: (params) => api.get('/precheck/csv/export', { params, responseType: 'blob' }),
+  getTemplate: () => api.get('/precheck/csv/template', { responseType: 'blob' }),
+  importCsv: (content) => api.post('/precheck/csv/import', { content })
+}
+
 export default api

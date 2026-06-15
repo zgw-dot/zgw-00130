@@ -133,6 +133,30 @@ const bcrypt = require('bcryptjs');
   waitlistEntries.forEach(w => insertWaitlist.run(...w));
   console.log('候补数据初始化完成');
 
+  const insertPrecheck = db.prepare(`
+    INSERT OR IGNORE INTO precheck_records
+    (appointment_id, patient_id, slot_id, check_date, status,
+     lab_result, lab_note, imaging_result, imaging_note,
+     consent_result, consent_note, fasting_result, fasting_note,
+     freeze_reason, import_batch, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const tmrw = new Date(today);
+  tmrw.setDate(today.getDate() + 1);
+  const todayStr = fmtDate(today);
+  const tmrwStr = fmtDate(tmrw);
+  const adminId = 1;
+  const batch = 'PRESEED' + todayStr.replace(/-/g, '') + '0001';
+
+  const precheckSeeds = [
+    [1, 1, 1, todayStr, 'verified', 1, '血常规、生化正常', 1, '胸部CT未见异常', 1, '手术同意书已签', 1, '禁食8小时', null, batch, adminId],
+    [2, 2, 1, todayStr, 'frozen', 1, '血常规正常', 0, 'MRI报告未出', 1, '已签', 1, '已禁食', '影像检查未出结果', batch, adminId],
+    [11, 3, 5, todayStr, 'pending', 1, '', 1, '', 0, '', 1, '', null, batch, adminId],
+    [12, 4, 5, tmrwStr, 'pending', 0, '', 0, '', 0, '', 0, '', null, batch, adminId]
+  ];
+  precheckSeeds.forEach(p => insertPrecheck.run(...p));
+  console.log('术前核验种子数据初始化完成');
+
   db.forceSave();
   console.log('种子数据全部初始化完成！数据库已保存。');
 })();

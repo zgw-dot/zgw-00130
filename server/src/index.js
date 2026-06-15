@@ -19,6 +19,8 @@ const roomDao = require('./roomDao');
 const rescheduleService = require('./rescheduleService');
 const rescheduleDao = require('./rescheduleDao');
 const rescheduleCsv = require('./rescheduleCsv');
+const precheckService = require('./precheckService');
+const precheckCsv = require('./precheckCsv');
 
 const PORT = process.env.PORT || 3001;
 const app = express();
@@ -41,7 +43,8 @@ const tryJson = (s) => {
 const errorHandler = (err, req, res, next) => {
   console.error('[ERROR]', err?.message || err);
   if (err?.stack) console.error(err.stack);
-  res.status(400).json({ error: err?.message || String(err) || '服务器内部错误' });
+  const code = err?.statusCode || 400;
+  res.status(code).json({ error: err?.message || String(err) || '服务器内部错误' });
 };
 
 app.post('/api/auth/login', (req, res, next) => {
@@ -897,6 +900,148 @@ app.get('/api/reschedule/exports', authMiddleware, (req, res, next) => {
     const { batchId } = req.query;
     const exports = rescheduleCsv.listExports(batchId || null);
     res.json({ exports });
+  } catch (e) { next(e); }
+});
+
+app.get('/api/precheck/records', authMiddleware, (req, res, next) => {
+  try {
+    const { date, status, patientId, doctorId } = req.query;
+    const list = precheckService.listRecords(req, { date, status, patientId, doctorId });
+    res.json({ list });
+  } catch (e) { next(e); }
+});
+
+app.get('/api/precheck/records/:id', authMiddleware, (req, res, next) => {
+  try {
+    const record = precheckService.getRecord(req, parseInt(req.params.id));
+    res.json({ record });
+  } catch (e) { next(e); }
+});
+
+app.get('/api/precheck/stats', authMiddleware, (req, res, next) => {
+  try {
+    const { date } = req.query;
+    const stats = precheckService.getStats(req, date || null);
+    res.json({ stats });
+  } catch (e) { next(e); }
+});
+
+app.post('/api/precheck/import', authMiddleware, (req, res, next) => {
+  try {
+    const { date } = req.body || {};
+    const result = precheckService.importByDate(req, date);
+    res.json(result);
+  } catch (e) { next(e); }
+});
+
+app.get('/api/precheck/import/preview', authMiddleware, (req, res, next) => {
+  try {
+    const { date } = req.query;
+    if (!date) return res.status(400).json({ error: '请指定日期' });
+    const list = precheckService.getAppointmentForImportPreview(req, date);
+    res.json({ list });
+  } catch (e) { next(e); }
+});
+
+app.put('/api/precheck/records/:id/items', authMiddleware, (req, res, next) => {
+  try {
+    const items = req.body || {};
+    const result = precheckService.updateCheckItems(req, parseInt(req.params.id), items);
+    res.json(result);
+  } catch (e) { next(e); }
+});
+
+app.post('/api/precheck/records/:id/freeze', authMiddleware, (req, res, next) => {
+  try {
+    const { reason } = req.body || {};
+    const result = precheckService.freezeRecord(req, parseInt(req.params.id), reason);
+    res.json(result);
+  } catch (e) { next(e); }
+});
+
+app.post('/api/precheck/records/:id/release', authMiddleware, (req, res, next) => {
+  try {
+    const { releaseNote, force } = req.body || {};
+    const result = precheckService.releaseRecord(req, parseInt(req.params.id), releaseNote, !!force);
+    res.json(result);
+  } catch (e) { next(e); }
+});
+
+app.post('/api/precheck/records/:id/revoke', authMiddleware, (req, res, next) => {
+  try {
+    const { reason } = req.body || {};
+    const result = precheckService.revokeRecord(req, parseInt(req.params.id), reason);
+    res.json(result);
+  } catch (e) { next(e); }
+});
+
+app.get('/api/precheck/config', authMiddleware, (req, res, next) => {
+  try {
+    const config = precheckService.getConfig(req);
+    res.json({ config });
+  } catch (e) { next(e); }
+});
+
+app.put('/api/precheck/config', authMiddleware, (req, res, next) => {
+  try {
+    const { key, value } = req.body || {};
+    if (!key || value === undefined) return res.status(400).json({ error: '请提供配置键和值' });
+    const result = precheckService.updateConfig(req, key, value);
+    res.json(result);
+  } catch (e) { next(e); }
+});
+
+app.get('/api/precheck/permissions', authMiddleware, (req, res, next) => {
+  try {
+    const permissions = precheckService.checkPermissions(req);
+    res.json({ permissions });
+  } catch (e) { next(e); }
+});
+
+app.get('/api/precheck/notifications', authMiddleware, (req, res, next) => {
+  try {
+    const { precheckId } = req.query;
+    const list = precheckService.listNotifications(req, precheckId ? parseInt(precheckId) : null);
+    res.json({ list });
+  } catch (e) { next(e); }
+});
+
+app.get('/api/precheck/exports', authMiddleware, (req, res, next) => {
+  try {
+    const list = precheckService.listExports(req);
+    res.json({ list });
+  } catch (e) { next(e); }
+});
+
+app.get('/api/precheck/csv/export', authMiddleware, (req, res, next) => {
+  try {
+    const { date, status } = req.query;
+    const statuses = status ? status.split(',') : null;
+    const result = precheckCsv.exportRecordsByFilter(req, {
+      date: date || null,
+      statuses,
+      exportType: date ? 'by_date' : 'all'
+    });
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(result.fileName)}"`);
+    res.setHeader('X-Snapshot-Hash', result.snapshotHash);
+    res.send(result.csv);
+  } catch (e) { next(e); }
+});
+
+app.get('/api/precheck/csv/template', authMiddleware, (req, res) => {
+  const csv = precheckCsv.generateTemplate();
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="术前核验导入模板.csv"');
+  res.send(csv);
+});
+
+app.post('/api/precheck/csv/import', authMiddleware, (req, res, next) => {
+  try {
+    const { content } = req.body || {};
+    if (!content) return res.status(400).json({ error: '请提供 CSV 内容' });
+    const result = precheckCsv.parseImportList(content);
+    res.json(result);
   } catch (e) { next(e); }
 });
 
