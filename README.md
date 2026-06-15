@@ -39,7 +39,7 @@ cd server && npm install
 cd ../client && npm install
 ```
 
-> 注意：`better-sqlite3` 依赖原生编译，安装时若在 Windows 上遇到问题，请先确保已安装 Visual Studio Build Tools / Python 3.x，或使用 `--build-from-source` 重试。
+> 注意：项目使用 `sql.js`（SQLite WASM），无需原生编译环境（不依赖 Visual Studio Build Tools、Python 或 node-gyp），在 Windows / macOS / Linux 上直接 `npm install` 即可。
 
 ### 2. 初始化种子数据
 
