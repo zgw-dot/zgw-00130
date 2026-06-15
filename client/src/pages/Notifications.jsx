@@ -197,8 +197,14 @@ export function NoShowRecords() {
 
   const recover = async (id) => {
     const reason = prompt('请输入恢复原因：', '患者后续到达 / 情况说明')
+    if (reason === null) return
+    const trimmed = reason.trim()
+    if (!trimmed) {
+      toast('恢复原因不能为空', 'error')
+      return
+    }
     try {
-      await api.post(`/no-show-records/${id}/recover`, { reason })
+      await api.post(`/no-show-records/${id}/recover`, { reason: trimmed })
       toast('已恢复爽约记录', 'success'); load()
     } catch (e) { toast(e.response?.data?.error || '失败', 'error') }
   }

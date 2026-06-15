@@ -465,8 +465,9 @@ const recoverNoShow = (req, { recordId, reason }) => {
   if (!record) throw new Error('爽约记录不存在');
   if (record.recovered_at) throw new Error('该爽约记录已被恢复');
 
-  if (!reason && req?.user?.role !== 'admin') {
-    throw new Error('恢复爽约必须提供原因（管理员除外）');
+  const trimmedReason = typeof reason === 'string' ? reason.trim() : '';
+  if (!trimmedReason) {
+    throw new Error('恢复爽约必须提供原因');
   }
 
   const now = getCurrentTime();
@@ -479,7 +480,7 @@ const recoverNoShow = (req, { recordId, reason }) => {
         recovered_by = ?,
         recovery_reason = ?
       WHERE id = ?
-    `).run(nowStr, req?.user?.id ?? null, reason || '（无原因恢复）', recordId);
+    `).run(nowStr, req?.user?.id ?? null, trimmedReason, recordId);
 
     if (record.appointment_id) {
       db.prepare(`
@@ -512,15 +513,15 @@ const recoverNoShow = (req, { recordId, reason }) => {
         slotId: record.slot_id,
         patientId: record.patient_id,
         oldValue: { recovered: false },
-        newValue: { recovered: true, recoveryReason: reason || '（无原因恢复）' },
-        reason: reason || '恢复爽约记录'
+        newValue: { recovered: true, recoveryReason: trimmedReason },
+        reason: trimmedReason
       });
     }
 
     return {
       recordId,
       recoveredAt: nowStr,
-      recoveryReason: reason || '（无原因恢复）'
+      recoveryReason: trimmedReason
     };
   });
 
