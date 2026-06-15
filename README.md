@@ -310,7 +310,7 @@ zgw-00130/
 | 确认超时时 | 双重判断：状态必须是 notifying + 当前时间必须 < deadline |
 | 号源名额 | 确认占号前再查一次 available_count，并发下事务保证 |
 | 配置权限 | `clerk_can_modify_global_config` 开关在中间件里动态判断 |
-| 恢复原因 | clerk 角色必须传非空 reason，否则中间层直接拒绝 |
+| 恢复原因 | 所有角色必须传非空且非纯空格的 reason，前后端双重校验，无默认兜底文案 |
 | 排名错乱 | 每次变动后 `renumberWaitlist()` 统一重排，不依赖增量 |
 | 手动触发权限 | 可配置 `manual_trigger_enabled` 决定 clerk 能否手动扫过期 |
 

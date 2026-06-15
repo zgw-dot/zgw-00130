@@ -201,9 +201,10 @@ const title = (t) => console.log(`\n=== ${t} ===`);
         const finalRecoverLogs = (await request('GET', '/audit-logs?action=recover_noshow&limit=1000', null, adminToken)).body.list;
         assert(finalRecoverLogs.length === expectedRecover,
           `clerk 恢复后审计总数正确 (预期: ${expectedRecover}, 实际: ${finalRecoverLogs.length})`);
-        const lastClerkLog = finalRecoverLogs[0];
-        assert(lastClerkLog.user_name === 'clerk1', 'clerk 恢复审计操作人正确');
-        assert(lastClerkLog.reason === '患者申诉成功，予以恢复', 'clerk 恢复原因审计正确');
+        const clerkAudit = finalRecoverLogs.find(l => l.entity_id == rec2.id);
+        assert(clerkAudit, `找到 clerk 本次恢复的审计记录 (entity_id=${rec2.id})`);
+        assert(clerkAudit.user_name === 'clerk1', 'clerk 恢复审计操作人正确: ' + clerkAudit.user_name);
+        assert(clerkAudit.reason === '患者申诉成功，予以恢复', 'clerk 恢复原因审计正确: ' + clerkAudit.reason);
       }
     } else {
       console.log('⚠️  跳过 clerk 测试：没有更多 booked 预约可用来制造爽约');
