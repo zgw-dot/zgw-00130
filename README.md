@@ -24,57 +24,79 @@
 
 ## 快速开始（零启动验收入口）
 
-本项目提供**统一验收入口**，自动串起安装、seed、服务启动、健康检查、API冒烟和跨重启二次验证。执行单条命令即可完成从零到通过的完整链路，不再需要人工开窗口跑零散命令：
+本项目提供**统一验收入口（从项目根目录一条命令搞定）**，自动串起安装、seed、服务启动、健康检查、API冒烟和跨重启二次验证。不再需要人工开窗口切目录、零散补命令。
 
 ```bash
-# 进入项目根目录
+# 进入项目根目录（任何后续命令都不需要再切子目录）
 cd zgw-00130
 
-# 推荐（一次跑两轮验证：首次启动 + 跨重启换端口/数据目录）
+# 推荐 —— 一次跑两轮验证：首次启动 + 跨重启换端口/数据目录
 npm run smoke-test
 
-# 或只跑一次启动验证（更快）
+# 或只跑一次启动验证（更快，适合开发快速自检）
 npm run smoke-test:once
 ```
 
-**统一验收脚本 `server/smoke_test.js` 会自动完成以下步骤：**
+**常用参数透传（`--` 后面的所有参数会原样传递给验收脚本）：**
+
+```bash
+# 自定义端口 + 单次跑
+npm run smoke-test:once -- --port 3099
+
+# 指定临时数据目录并保留 + 输出 JSON 摘要
+npm run smoke-test -- --data-dir ./tmp_acceptance --keep-data --json ./result.json
+
+# 跳过 npm install（假设依赖已装好）
+npm run smoke-test -- --skip-install
+
+# 查看完整帮助
+npm run smoke-test -- --help
+# 或直接用 node 调用（不需要 -- 分隔符）
+node smoke.js --help
+```
+
+**统一验收脚本会自动完成以下 7 个步骤（任一步失败即硬失败并给出失败代码+原因）：**
 
 | 步骤 | 自动执行 | 失败行为 |
 |---|---|---|
-| 1. 端口占用检查 | 启动前校验端口空闲，禁止复用机器上已有服务 | 硬失败：`port_occupied`，提示换 `--port` |
-| 2. 依赖安装 | `server/node_modules` 不存在时自动 `npm install` | 硬失败：`install_fail`，带 npm 错误输出 |
-| 3. 数据目录 + seed | 生成临时目录 → 删旧库 → 跑 `src/seed.js` → 校验 DB 文件 | 硬失败：`seed_fail` |
-| 4. 启动后端 + 健康检查 | 以自有子进程拉起（记录 PID，确认是本次拉起） → 轮询 `/api/health` 至超时 | 硬失败：`server_not_up` / `health_timeout` |
-| 5. API 冒烟测试 | admin/clerk 登录 + 14 个公开/鉴权接口 | 硬失败：`smoke_fail` 逐项列出 |
-| 6. 跨重启二轮验证 | 停掉进程 → 换端口（3001→3002）+ 换独立临时数据目录 → 再跑 1-5 步 | 硬失败：`restart_fail` |
+| 1. 端口占用检查 | 启动前校验端口空闲，**禁止复用机器上已有服务** | 硬失败：`port_occupied`（exitCode=2），提示换 `--port` |
+| 2. 依赖安装 | `server/node_modules` 不存在时自动 `npm install` | 硬失败：`install_fail`（exitCode=1），带 npm 完整错误输出 |
+| 3. 数据目录 + seed | 生成临时目录 → 删旧库 → 跑 `server/src/seed.js` → 校验 DB 文件生成 | 硬失败：`seed_fail`（exitCode=3） |
+| 4. 启动后端 + 健康检查 | 以自有子进程拉起（记录 PID，确认是本次拉起） → 轮询 `/api/health` 至超时 | 硬失败：`server_not_up`（exitCode=4）/ `health_timeout`（exitCode=5） |
+| 5. API 冒烟测试 | admin/clerk 登录 + 14 个公开/鉴权接口全覆盖 | 硬失败：`smoke_fail`（exitCode=6），逐项列出失败项 |
+| 6. 跨重启二轮验证 | 停掉首轮进程 → 换端口（默认 3001→3002，可用 `--restart-port` 改） + 换独立临时数据目录 → 再跑 1-5 步 | 硬失败：`restart_fail`（exitCode=7） |
 | 7. 清理 | 自动杀进程 + 删除临时数据目录（`--keep-data` 可保留） | - |
 
-> 脚本失败代码和原因会写入控制台摘要和 `server/smoke_logs/smoke_*.log`，便于定位卡住的环节。
+> 脚本失败代码、原因和详细日志会写入控制台最终摘要和 `server/smoke_logs/smoke_*.log`，便于定位卡住的环节。摘要也可通过 `--json ./xxx.json` 落盘供流水线消费。
 
-### 常用参数（在 `server/` 下直接跑脚本可追加）
+**可选参数完整列表**（`npm run smoke-test -- --help` 随时查看）：
 
-```bash
-cd server
-node smoke_test.js --help                   # 查看全部选项
-node smoke_test.js --port 3099 --no-restart  # 单次跑自定义端口
-node smoke_test.js --data-dir ./tmp_acceptance --keep-data  # 自定义数据目录并保留
-```
+| 参数 | 说明 |
+|---|---|
+| `-h, --help` | 显示完整帮助 |
+| `--port <端口>` | 首轮后端端口（默认 3001） |
+| `--restart-port <端口>` | 第二轮跨重启端口（默认 3002） |
+| `--data-dir <目录>` | 首轮临时数据目录（默认自动生成 `server/tmp_smoke_*`） |
+| `--keep-data` | 测试结束后保留临时数据目录 |
+| `--json <文件>` | 把最终摘要额外写入 JSON 文件 |
+| `--no-restart` | 只跑首轮，跳过跨重启二次验证 |
+| `--skip-install` | 跳过 npm install（假设依赖已装） |
+| `--skip-smoke` | 跳过 API 冒烟（只验 安装+seed+启动+健康） |
 
 ---
 
 ### 手动分步（如需要自行开发调试）
 
-不用于验收链路；若需要手动启动前后端开发服务：
+不用于验收链路；若需要手动启动前后端开发服务（**以下命令均在项目根目录执行**）：
 
 ```bash
-# 1. 安装依赖（同 smoke-test 内部）
+# 1. 一次性安装三方依赖（同 smoke-test 内部）
 npm run install:all
 
-# 2. 初始化种子数据
-cd server
-npm run seed
+# 2. 初始化种子数据（数据库写入 server/data/app.db）
+cd server && npm run seed
 
-# 3. 启动前后端（需两个终端）
+# 3. 启动前后端（需两个终端，或用 npm run dev 同时拉起）
 # 终端 1：后端 http://localhost:3001
 cd server && npm run dev
 # 终端 2：前端 http://localhost:5173

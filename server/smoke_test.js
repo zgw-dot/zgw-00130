@@ -22,12 +22,22 @@ function printHelp() {
 门诊候补号源系统 - 统一零启动验收入口
 
 用法:
+  # 推荐: 从项目根目录调用（无需切目录）
+  cd zgw-00130
+  npm run smoke-test -- [选项]
+  npm run smoke-test:once -- [选项]
+  node smoke.js [选项]
+
+  # 或在 server/ 目录下直接调用
+  cd server
   node smoke_test.js [选项]
 
 选项:
   -h, --help                 显示此帮助
   --port <端口>              指定后端端口 (默认: 3001)
   --data-dir <目录>          指定临时数据目录 (默认: 自动生成临时目录)
+                              从根目录调用时: 相对项目根目录
+                              从 server/ 调用时: 相对 server/ 目录
   --keep-data                测试结束后保留数据目录
   --keep-logs                测试结束后保留日志 (默认保留)
   --no-restart               只跑单次验证, 跳过跨重启二次验证
@@ -36,11 +46,12 @@ function printHelp() {
   --skip-smoke               跳过 API 冒烟测试 (只验证安装+seed+启动)
   --strict-port-check          端口占用时直接失败 (默认行为, 仅用于显式声明)
   --json <文件>             将摘要额外写入 JSON 文件
+                              路径解析规则同 --data-dir
 
 示例:
-  node smoke_test.js
-  node smoke_test.js --port 3099 --no-restart
-  node smoke_test.js --data-dir ./tmp_acceptance
+  npm run smoke-test
+  npm run smoke-test:once -- --port 3099
+  node smoke.js --data-dir ./tmp_acceptance --keep-data
 
 失败代码 (exitCode):
   0  全部通过
