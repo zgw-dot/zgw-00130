@@ -43,8 +43,8 @@ npm run smoke-test:once
 # 自定义端口 + 单次跑
 npm run smoke-test:once -- --port 3099
 
-# 指定临时数据目录并保留 + 输出 JSON 摘要
-npm run smoke-test -- --data-dir ./tmp_acceptance --keep-data --json ./result.json
+# 指定临时数据目录并保留 + 输出 JSON 摘要（父目录不存在会自动创建）
+npm run smoke-test -- --data-dir ./tmp_acceptance --keep-data --json ./results/round1.json
 
 # 跳过 npm install（假设依赖已装好）
 npm run smoke-test -- --skip-install
@@ -84,6 +84,23 @@ node smoke.js --help
 | `--skip-smoke` | 跳过 API 冒烟（只验 安装+seed+启动+健康） |
 | `--history <N>` | 查看最近 N 次运行记录 |
 
+### 最终摘要（对账口径，统一输出）
+
+无论本轮是**全部通过**、**早期参数错误**（如 data-dir 指向文件）、**端口冲突**，还是运行中崩溃，结尾都会打印统一格式的「最终摘要（对账口径）」块，单看摘要就能知道本轮是怎么跑的。核心字段：
+
+| 字段 | 说明 |
+|---|---|
+| `finalResult` / `failCode` / `failReason` | 本轮总体结果、失败分类和原因 |
+| `command` / `argv` | 本次实际执行的命令与参数 |
+| `port` / `restartPort` | 首轮端口与跨重启端口 |
+| `dataDirs` | 本轮使用的所有数据目录列表 |
+| `rounds[]` | 每轮明细：端口、PID、数据目录、冒烟统计、时长、失败原因 |
+| `logPath` / `recordPath` / `jsonPath` | 对账路径三件套（日志、run record、JSON 摘要） |
+
+> `--json ./path/to/file.json` 若指定的父目录不存在，会自动递归创建，无需提前 `mkdir`。
+
+---
+
 ### 运行记录（Run Records）
 
 每次运行验收脚本（**无论成功或失败**），都会自动在 `server/smoke_records/` 下生成一条 JSON 记录文件 `record_<timestamp>.json`，确保硬失败也不会只在控制台一闪而过。记录包含：
@@ -100,6 +117,8 @@ node smoke.js --help
 | `failCode` / `failReason` | 失败分类和原因 |
 | `logPath` | 详细日志路径 |
 | `recordPath` | 本记录文件路径 |
+| `dataDirs` | 本轮使用的所有数据目录 |
+| `jsonPath` | 若指定 --json，JSON 摘要落盘路径 |
 
 查看历史记录：
 

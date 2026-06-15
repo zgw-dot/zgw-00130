@@ -1,0 +1,45 @@
+{
+  "id": "record_2026-06-15T06-43-56-254Z",
+  "timestamp": 1781505836261,
+  "timestampISO": "2026-06-15T06:43:56.261Z",
+  "command": "node smoke_test.js --data-dir D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\review-bad\\as-file.txt --json D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\test_output\\reviewer\\invalid_data_dir_v2.json --port 3099",
+  "argv": [
+    "--data-dir",
+    "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\review-bad\\as-file.txt",
+    "--json",
+    "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\test_output\\reviewer\\invalid_data_dir_v2.json",
+    "--port",
+    "3099"
+  ],
+  "exitCode": 8,
+  "finalResult": "fail_early",
+  "failCode": 8,
+  "failReason": "data-dir 参数指向一个文件而非目录: D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\review-bad\\as-file.txt",
+  "durationMs": 0,
+  "logPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_logs\\smoke_2026-06-15T06-43-56-254Z.log",
+  "recordPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_records\\record_2026-06-15T06-43-56-254Z.json",
+  "install": {
+    "executed": false,
+    "skipped": false,
+    "ok": false
+  },
+  "rounds": [
+    {
+      "label": "参数校验",
+      "port": 3099,
+      "dataDir": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\review-bad\\as-file.txt",
+      "ok": false,
+      "failCode": 8,
+      "failReason": "data-dir 参数指向一个文件而非目录: D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\review-bad\\as-file.txt",
+      "durationMs": 0,
+      "pid": null,
+      "healthCheck": null,
+      "seed": null,
+      "smoke": null,
+      "steps": {}
+    }
+  ],
+  "port": 3099,
+  "restartPort": 3002,
+  "tempDirs": []
+}

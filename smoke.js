@@ -43,15 +43,25 @@ function printRootHelp() {
   --port <端口>              指定后端端口 (默认: 3001)
   --restart-port <端口>      第二轮跨重启验证端口 (默认: 3002)
   --data-dir <目录>          指定临时数据目录 (默认: 自动生成临时目录)
-  --json <文件>              将摘要额外写入 JSON 文件
+  --json <文件>              将摘要额外写入 JSON 文件 (父目录不存在会自动创建)
   --no-restart               只跑单次验证, 跳过跨重启二次验证
   --keep-data                测试结束后保留数据目录
   --skip-install             跳过 npm install (假设依赖已装)
   --skip-smoke               跳过 API 冒烟测试 (只验证安装+seed+启动)
   --history <N>              查看最近 N 次运行记录
 
+最终摘要（对账口径，所有成功/失败路径统一输出）:
+  无论本轮结果是成功、早期参数错误、端口冲突还是运行中崩溃，控制台结尾都会
+  打印统一格式的「最终摘要（对账口径）」块，包含以下关键字段:
+    - 本轮结果 (finalResult) + 命令 (command) + 参数 (argv)
+    - 端口: port + restart-port
+    - 数据目录: data-dirs（列出本轮使用的所有目录）
+    - 失败分类: failCode + failReason（非失败不出现）
+    - 各轮次明细: 每轮的端口/PID/数据目录/冒烟统计/时长/结果
+    - 对账路径三件套: logPath / recordPath / jsonPath（若指定 --json）
+
 运行记录:
-  每次运行（无论成功或失败）都会自动在 server/smoke_records/ 目录下生成一条
+  每次运行（无论成功或失败），都会自动在 server/smoke_records/ 目录下生成一条
   JSON 记录文件 (record_<timestamp>.json)，包含:
     - 命令参数 (command, argv)
     - 安装状态 (install: executed/skipped/ok)
@@ -62,6 +72,7 @@ function printRootHelp() {
     - 各轮次详情 (第一轮、第二轮)
     - 失败分类 (failCode, failReason)
     - 日志路径 (logPath)、运行记录路径 (recordPath)
+    - 数据目录列表 (dataDirs)、摘要输出路径 (jsonPath)
   使用 --history <N> 可快速查看最近 N 条记录。
 
 示例:
@@ -71,8 +82,8 @@ function printRootHelp() {
   # 只跑一次，自定义端口
   npm run smoke-test:once -- --port 3099
 
-  # 指定数据目录并保留，写 JSON 摘要
-  node smoke.js --data-dir ./tmp_acceptance --keep-data --json result.json
+  # 指定数据目录并保留，写 JSON 摘要到新目录（父目录自动建）
+  node smoke.js --data-dir ./tmp_acceptance --keep-data --json ./results/r1.json
 
   # 查看最近 5 次运行记录
   npm run smoke-test -- --history 5
@@ -130,18 +141,28 @@ function showHistory(n) {
       const installStr = data.install
         ? (data.install.executed ? '安装执行' : (data.install.skipped ? '安装跳过' : '安装未到'))
         : '-';
+      const dataDirsStr = data.dataDirs ? data.dataDirs.join(', ') : '-';
       console.log(`  ${ts}  ${resultStr}  端口=${port}  时长=${dur}  安装=${installStr}`);
       console.log(`    命令: ${cmd}`);
+      console.log(`    参数 argv: ${JSON.stringify(data.argv || [])}`);
+      console.log(`    数据目录: ${dataDirsStr}`);
       if (data.rounds) {
         for (const r of data.rounds) {
           const ri = r.ok ? '✅' : '❌';
-          console.log(`    ${ri} ${r.label} PID=${r.pid || '-'} 数据=${r.dataDir || '-'} 烟雾=${r.smoke ? r.smoke.passed + '/' + (r.smoke.passed + r.smoke.failed) : '-'} 结果=${r.ok ? 'PASS' : 'FAIL:' + failCodeToString(r.failCode)}`);
+          const smokeStr = r.smoke ? `${r.smoke.passed}/${r.smoke.passed + r.smoke.failed}` : (r.smoke && r.smoke.skipped ? '跳过' : '-');
+          const rdur = r.durationMs != null ? `${(r.durationMs / 1000).toFixed(1)}s`
+                    : (r.duration != null ? `${(r.duration / 1000).toFixed(1)}s` : 'n/a');
+          console.log(`    ${ri} ${r.label} PID=${r.pid || '-'} 端口=${r.port || '-'} 数据=${r.dataDir || '-'} 烟雾=${smokeStr} 时长=${rdur} 结果=${r.ok ? 'PASS' : 'FAIL:' + failCodeToString(r.failCode)}`);
         }
       }
       if (data.failReason) {
         console.log(`    失败原因: ${data.failReason}`);
       }
-      console.log(`    日志: ${data.logPath || '-'}  记录: ${data.recordPath || '-'}`);
+      console.log(`    日志: ${data.logPath || '-'}`);
+      console.log(`    记录: ${data.recordPath || '-'}`);
+      if (data.jsonPath) {
+        console.log(`    JSON: ${data.jsonPath}`);
+      }
       console.log('');
     } catch (_) {
       console.log(`  [无法读取: ${f}]`);

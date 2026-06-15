@@ -1,0 +1,49 @@
+{
+  "id": "record_2026-06-15T06-44-28-793Z",
+  "timestamp": 1781505868804,
+  "timestampISO": "2026-06-15T06:44:28.804Z",
+  "command": "node smoke_test.js --port 3088 --no-restart --skip-install --json D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\test_output\\reviewer\\port_conflict_v2.json",
+  "argv": [
+    "--port",
+    "3088",
+    "--no-restart",
+    "--skip-install",
+    "--json",
+    "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\test_output\\reviewer\\port_conflict_v2.json"
+  ],
+  "finalResult": "fail_round1",
+  "failCode": 2,
+  "failReason": "第一轮失败: 端口 3088 被占用",
+  "exitCode": 2,
+  "durationMs": 16,
+  "port": 3088,
+  "restartPort": 3002,
+  "dataDirs": [
+    "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\tmp_smoke_44396_1"
+  ],
+  "logPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_logs\\smoke_2026-06-15T06-44-28-793Z.log",
+  "recordPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_records\\record_2026-06-15T06-44-28-793Z.json",
+  "rounds": [
+    {
+      "label": "第一轮（首次启动）",
+      "port": 3088,
+      "dataDir": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\tmp_smoke_44396_1",
+      "ok": false,
+      "failCode": 2,
+      "failReason": "端口 3088 被占用",
+      "duration": 16,
+      "steps": {
+        "port_check": {
+          "ok": false,
+          "duration": 0
+        }
+      }
+    }
+  ],
+  "tempDirs": [
+    "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\tmp_smoke_44396_1"
+  ],
+  "steps": null,
+  "install": null,
+  "jsonPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\test_output\\reviewer\\port_conflict_v2.json"
+}

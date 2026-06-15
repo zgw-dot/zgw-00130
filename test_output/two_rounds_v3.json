@@ -1,0 +1,128 @@
+{
+  "id": "record_2026-06-15T06-45-37-197Z",
+  "timestamp": 1781505937203,
+  "timestampISO": "2026-06-15T06:45:37.203Z",
+  "command": "node smoke_test.js --json D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\test_output\\two_rounds_v3.json --skip-install --port 3073 --restart-port 3074",
+  "argv": [
+    "--json",
+    "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\test_output\\two_rounds_v3.json",
+    "--skip-install",
+    "--port",
+    "3073",
+    "--restart-port",
+    "3074"
+  ],
+  "finalResult": "pass",
+  "failCode": 0,
+  "failReason": null,
+  "exitCode": 0,
+  "durationMs": 4161,
+  "port": 3073,
+  "restartPort": 3074,
+  "dataDirs": [
+    "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\tmp_smoke_48436_1",
+    "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\tmp_smoke_48436_2"
+  ],
+  "logPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_logs\\smoke_2026-06-15T06-45-37-197Z.log",
+  "recordPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_records\\record_2026-06-15T06-45-37-197Z.json",
+  "rounds": [
+    {
+      "label": "第一轮（首次启动）",
+      "port": 3073,
+      "dataDir": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\tmp_smoke_48436_1",
+      "ok": true,
+      "failCode": 0,
+      "failReason": null,
+      "duration": 1988,
+      "steps": {
+        "port_check": {
+          "ok": true,
+          "duration": 0
+        },
+        "install": {
+          "ok": true,
+          "skipped": true
+        },
+        "seed": {
+          "ok": true
+        },
+        "server_start": {
+          "ok": true,
+          "pid": 40684
+        },
+        "smoke": {
+          "passed": 23,
+          "failed": 0,
+          "errors": []
+        }
+      },
+      "pid": 40684,
+      "smoke": {
+        "passed": 23,
+        "failed": 0,
+        "errors": []
+      },
+      "durationMs": 1988,
+      "healthCheck": {
+        "ok": true
+      },
+      "seed": {
+        "ok": true
+      }
+    },
+    {
+      "label": "第二轮（跨重启验证）",
+      "port": 3074,
+      "dataDir": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\tmp_smoke_48436_2",
+      "ok": true,
+      "failCode": 0,
+      "failReason": null,
+      "duration": 2101,
+      "steps": {
+        "port_check": {
+          "ok": true,
+          "duration": 0
+        },
+        "install": {
+          "ok": true,
+          "skipped": true
+        },
+        "seed": {
+          "ok": true
+        },
+        "server_start": {
+          "ok": true,
+          "pid": 22060
+        },
+        "smoke": {
+          "passed": 23,
+          "failed": 0,
+          "errors": []
+        }
+      },
+      "pid": 22060,
+      "smoke": {
+        "passed": 23,
+        "failed": 0,
+        "errors": []
+      },
+      "durationMs": 2101,
+      "healthCheck": {
+        "ok": true
+      },
+      "seed": {
+        "ok": true
+      }
+    }
+  ],
+  "tempDirs": [
+    "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\tmp_smoke_48436_1",
+    "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\tmp_smoke_48436_2"
+  ],
+  "steps": null,
+  "install": {
+    "ok": true,
+    "skipped": true
+  },
+  "jsonPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\test_output\\two_rounds_v3.json"
+}

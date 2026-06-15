@@ -46,9 +46,19 @@ function printHelp() {
   --skip-install             跳过 npm install (假设依赖已装)
   --skip-smoke               跳过 API 冒烟测试 (只验证安装+seed+启动)
   --strict-port-check          端口占用时直接失败 (默认行为, 仅用于显式声明)
-  --json <文件>             将摘要额外写入 JSON 文件
+  --json <文件>             将摘要额外写入 JSON 文件 (父目录不存在会自动创建)
                               路径解析规则同 --data-dir
   --history <N>             查看最近 N 次运行记录
+
+最终摘要（对账口径，所有成功/失败路径统一输出）:
+  无论本轮结果是成功、早期参数错误、端口冲突还是运行中崩溃，控制台结尾都会
+  打印统一格式的「最终摘要（对账口径）」块，包含以下关键字段:
+    - 本轮结果 (finalResult) + 命令 (command) + 参数 (argv)
+    - 端口: port + restart-port
+    - 数据目录: data-dirs（列出本轮使用的所有目录）
+    - 失败分类: failCode + failReason（非失败不出现）
+    - 各轮次明细: 每轮的端口/PID/数据目录/冒烟统计/时长/结果
+    - 对账路径三件套: logPath / recordPath / jsonPath（若指定 --json）
 
 运行记录:
   每次运行（无论成功或失败）都会自动在 server/smoke_records/ 目录下生成一条
@@ -63,12 +73,13 @@ function printHelp() {
     - 失败分类 (failCode, failReason)
     - 日志路径 (logPath)
     - 运行记录路径 (recordPath)
+    - 数据目录列表 (dataDirs)、摘要输出路径 (jsonPath)
   使用 --history <N> 可快速查看最近 N 条记录。
 
 示例:
   npm run smoke-test
   npm run smoke-test:once -- --port 3099
-  node smoke.js --data-dir ./tmp_acceptance --keep-data
+  node smoke.js --data-dir ./tmp_acceptance --keep-data --json ./results/r1.json
   node smoke_test.js --history 5
 
 失败代码 (exitCode):
@@ -567,121 +578,146 @@ async function runOneRound(opts, logger, roundLabel) {
   return summary;
 }
 
-function writeRunRecord(stamp, logPath, finalSummary) {
+function writeUnifiedRunRecord(unified) {
   try {
     if (!fs.existsSync(RECORDS_DIR)) fs.mkdirSync(RECORDS_DIR, { recursive: true });
-    const recordId = `record_${stamp}`;
-    const recordPath = path.join(RECORDS_DIR, `${recordId}.json`);
-
-    const firstRoundSteps = finalSummary.rounds.length > 0 ? finalSummary.rounds[0].steps : {};
-    const installStep = firstRoundSteps.install || {};
-    let installRecord;
-    if (finalSummary.rounds.length > 0 && finalSummary.rounds[0].failCode === FAIL.INSTALL) {
-      installRecord = { executed: true, skipped: false, ok: false };
-    } else if (installStep.skipped) {
-      installRecord = { executed: false, skipped: true, ok: !!installStep.ok };
-    } else if (Object.keys(installStep).length > 0) {
-      installRecord = { executed: true, skipped: false, ok: !!installStep.ok };
-    } else {
-      installRecord = { executed: false, skipped: false, ok: false };
-    }
-
-    const recordRounds = finalSummary.rounds.map(r => {
-      const steps = r.steps || {};
-      const serverStart = steps.server_start || {};
-      const seedStep = steps.seed || null;
-      const smokeStep = steps.smoke || null;
-      let healthCheck = null;
-      if (serverStart.ok) {
-        healthCheck = { ok: true };
-      } else if (r.failCode === FAIL.HEALTH_TIMEOUT) {
-        healthCheck = { ok: false };
-      }
-
-      return {
-        label: r.label,
-        port: r.port,
-        dataDir: r.dataDir,
-        ok: r.ok,
-        failCode: r.failCode,
-        failReason: r.failReason,
-        durationMs: r.duration,
-        pid: serverStart.pid || null,
-        healthCheck,
-        seed: seedStep,
-        smoke: smokeStep,
-        steps,
-      };
-    });
-
-    const exitCode = finalSummary.failCode || 0;
-    const record = {
-      id: recordId,
-      timestamp: finalSummary.startedAt,
-      timestampISO: new Date(finalSummary.startedAt).toISOString(),
-      command: `node smoke_test.js ${process.argv.slice(2).join(' ')}`,
-      argv: process.argv.slice(2),
-      exitCode,
-      finalResult: finalSummary.finalResult,
-      failCode: finalSummary.failCode,
-      failReason: finalSummary.failReason,
-      durationMs: finalSummary.endedAt - finalSummary.startedAt,
-      logPath,
-      recordPath,
-      install: installRecord,
-      rounds: recordRounds,
-      port: finalSummary.port,
-      restartPort: finalSummary.restartPort,
-      tempDirs: finalSummary.tempDirs || [],
-    };
-
-    fs.writeFileSync(recordPath, JSON.stringify(record, null, 2));
+    const recordPath = unified.recordPath;
+    if (!recordPath) return null;
+    fs.writeFileSync(recordPath, JSON.stringify(unified, null, 2));
     return recordPath;
   } catch (e) {
     return null;
   }
 }
 
-function writeEarlyFailureRecord(stamp, args, failCode, failReason, logPath, recordPath, dataDir) {
-  try {
-    if (!fs.existsSync(RECORDS_DIR)) fs.mkdirSync(RECORDS_DIR, { recursive: true });
-    const record = {
-      id: `record_${stamp}`,
-      timestamp: Date.now(),
-      timestampISO: new Date().toISOString(),
-      command: `node smoke_test.js ${process.argv.slice(2).join(' ')}`,
-      argv: process.argv.slice(2),
-      exitCode: failCode,
-      finalResult: 'fail_early',
-      failCode,
-      failReason,
-      durationMs: 0,
-      logPath,
-      recordPath,
-      install: { executed: false, skipped: false, ok: false },
-      rounds: [{
-        label: '参数校验',
-        port: args.port,
-        dataDir,
-        ok: false,
-        failCode,
-        failReason,
-        durationMs: 0,
-        pid: null,
-        healthCheck: null,
-        seed: null,
-        smoke: null,
-        steps: {},
-      }],
-      port: args.port,
-      restartPort: args.restartPort,
-      tempDirs: [],
+function buildUnifiedSummary(partial, args, stamp, logPath) {
+  const cmd = process.argv;
+  const command = `node smoke_test.js ${process.argv.slice(2).join(' ')}`;
+  const argv = process.argv.slice(2);
+  const recordPath = path.join(RECORDS_DIR, `record_${stamp}.json`);
+  const dataDirs = [];
+  if (partial.rounds) {
+    for (const r of partial.rounds) {
+      if (r.dataDir && !dataDirs.includes(r.dataDir)) dataDirs.push(r.dataDir);
+    }
+  }
+  if (partial.tempDirs) {
+    for (const d of partial.tempDirs) {
+      if (d && !dataDirs.includes(d)) dataDirs.push(d);
+    }
+  }
+  const normalizedRounds = (partial.rounds || []).map(r => {
+    const steps = r.steps || {};
+    const serverStart = steps.server_start || {};
+    const pid = r.pid != null ? r.pid : serverStart.pid;
+    const smoke = r.smoke != null ? r.smoke : (steps.smoke || null);
+    const durationMs = r.durationMs != null ? r.durationMs
+                    : (r.duration != null ? r.duration : null);
+    return {
+      ...r,
+      pid,
+      smoke,
+      durationMs,
+      healthCheck: r.healthCheck != null ? r.healthCheck
+        : (serverStart.ok ? { ok: true }
+           : (r.failCode === FAIL.HEALTH_TIMEOUT ? { ok: false } : null)),
+      seed: r.seed != null ? r.seed : (steps.seed || null),
     };
-    fs.writeFileSync(recordPath, JSON.stringify(record, null, 2));
-    return record;
+  });
+  const summary = {
+    id: `record_${stamp}`,
+    timestamp: partial.startedAt || Date.now(),
+    timestampISO: new Date(partial.startedAt || Date.now()).toISOString(),
+    command,
+    argv,
+    finalResult: partial.finalResult || 'pending',
+    failCode: partial.failCode || 0,
+    failReason: partial.failReason || null,
+    exitCode: partial.failCode || 0,
+    durationMs: partial.endedAt && partial.startedAt ? (partial.endedAt - partial.startedAt) : 0,
+    port: partial.port != null ? partial.port : (args && args.port != null ? args.port : DEFAULT_PORT),
+    restartPort: partial.restartPort != null ? partial.restartPort : (args && args.restartPort != null ? args.restartPort : 3002),
+    dataDirs,
+    logPath: partial.logPath || logPath,
+    recordPath: partial.recordPath || recordPath,
+    rounds: normalizedRounds,
+    tempDirs: partial.tempDirs || [],
+    steps: partial.steps || null,
+    install: partial.install || (normalizedRounds.length > 0 && normalizedRounds[0].steps && normalizedRounds[0].steps.install
+      ? normalizedRounds[0].steps.install
+      : null),
+  };
+  return summary;
+}
+
+function exportJsonSummary(jsonArg, summary, logger) {
+  if (!jsonArg) return null;
+  try {
+    const jsonPath = path.isAbsolute(jsonArg) ? jsonArg : path.resolve(SERVER_ROOT, jsonArg);
+    const jsonDir = path.dirname(jsonPath);
+    if (!fs.existsSync(jsonDir)) {
+      fs.mkdirSync(jsonDir, { recursive: true });
+      if (logger) logger.info(`已创建 JSON 输出父目录: ${jsonDir}`);
+      else console.log(`已创建 JSON 输出父目录: ${jsonDir}`);
+    }
+    const toWrite = { ...summary, jsonPath };
+    fs.writeFileSync(jsonPath, JSON.stringify(toWrite, null, 2));
+    if (logger) logger.info(`摘要 JSON 已写入: ${jsonPath}`);
+    else console.log(`摘要 JSON 已写入: ${jsonPath}`);
+    return jsonPath;
   } catch (e) {
+    const msg = `写入 JSON 摘要失败: ${e.message}`;
+    if (logger) logger.error(msg);
+    else console.error(msg);
     return null;
   }
+}
+
+function printUnifiedSummary(summary, logger, jsonPathWritten) {
+  const log = logger ? (m) => logger.info(m) : (m) => console.log(m);
+  const err = logger ? (m) => logger.error(m) : (m) => console.error(m);
+  const step = logger ? (m) => logger.step(m) : (m) => { console.log('\n' + '='.repeat(6) + ' ' + m + ' ' + '='.repeat(6)); };
+
+  step('最终摘要（对账口径）');
+
+  const ok = summary.failCode === 0;
+  log(`结果: ${ok ? '✅ 全部通过' : '❌ 失败'}  (finalResult=${summary.finalResult})`);
+  log(`命令: ${summary.command}`);
+  log(`参数 argv: ${JSON.stringify(summary.argv)}`);
+  log(`端口 port=${summary.port}  restart-port=${summary.restartPort}`);
+  log(`数据目录 data-dirs: ${summary.dataDirs.length > 0 ? summary.dataDirs.join(', ') : '(无)'}`);
+  log(`运行时长: ${(summary.durationMs / 1000).toFixed(1)}s`);
+
+  if (summary.failCode !== 0) {
+    err(`失败分类: ${failCodeToString(summary.failCode)} (exitCode=${summary.failCode})`);
+    err(`失败原因: ${summary.failReason || '(无)'}`);
+  }
+
+  if (summary.rounds && summary.rounds.length > 0) {
+    step('各轮次明细');
+    for (const r of summary.rounds) {
+      const icon = r.ok ? '✅' : '❌';
+      const smokeStr = r.smoke
+        ? `${r.smoke.passed}/${r.smoke.passed + r.smoke.failed}`
+        : (r.smoke && r.smoke.skipped ? '跳过' : '-');
+      const dur = r.durationMs != null ? (r.durationMs / 1000).toFixed(1) + 's'
+                : (r.duration != null ? (r.duration / 1000).toFixed(1) + 's' : 'n/a');
+      log(`${icon} ${r.label}  端口=${r.port}  PID=${r.pid || '-'}  数据=${r.dataDir || '-'}  烟雾=${smokeStr}  时长=${dur}`);
+      if (!r.ok) {
+        err(`   结果: FAIL ${failCodeToString(r.failCode)}  原因: ${r.failReason || '-'}`);
+      } else {
+        log(`   结果: PASS`);
+      }
+    }
+  }
+
+  step('对账路径');
+  log(`日志路径 logPath: ${summary.logPath}`);
+  log(`记录路径 recordPath: ${summary.recordPath}`);
+  if (summary.jsonPath || jsonPathWritten) {
+    log(`JSON 摘要 jsonPath: ${summary.jsonPath || jsonPathWritten}`);
+  }
+  log('--- 摘要结束 ---');
 }
 
 async function main() {
@@ -696,14 +732,13 @@ async function main() {
     const dataDirAbs = path.isAbsolute(args.dataDir) ? args.dataDir : path.resolve(SERVER_ROOT, args.dataDir);
     if (fileExists(dataDirAbs)) {
       const failReason = `data-dir 参数指向一个文件而非目录: ${dataDirAbs}`;
-      console.error(`[参数错误] ${failReason}`);
-      console.error(`失败分类: invalid_data_dir (exitCode=${FAIL.INVALID_DATA_DIR})`);
+      const failCode = FAIL.INVALID_DATA_DIR;
 
       const logger = new Logger(logPath);
-      logger.error(failReason);
-      logger.error(`失败分类: ${failCodeToString(FAIL.INVALID_DATA_DIR)} (exitCode=${FAIL.INVALID_DATA_DIR})`);
+      logger.error(`[参数错误] ${failReason}`);
+      logger.error(`失败分类: ${failCodeToString(failCode)} (exitCode=${failCode})`);
 
-      const finalSummary = {
+      const rawSummary = {
         startedAt: Date.now(),
         endedAt: Date.now(),
         rounds: [{
@@ -711,38 +746,34 @@ async function main() {
           port: args.port,
           dataDir: dataDirAbs,
           ok: false,
-          failCode: FAIL.INVALID_DATA_DIR,
+          failCode,
           failReason,
+          durationMs: 0,
           duration: 0,
+          pid: null,
           steps: {},
         }],
         tempDirs: [],
         finalResult: 'fail_invalid_data_dir',
-        failCode: FAIL.INVALID_DATA_DIR,
+        failCode,
         failReason,
         logPath,
         port: args.port,
         restartPort: args.restartPort,
+        recordPath,
       };
 
-      writeEarlyFailureRecord(stamp, args, FAIL.INVALID_DATA_DIR, failReason, logPath, recordPath, dataDirAbs);
-
-      if (args.json) {
-        try {
-          const jsonPath = path.isAbsolute(args.json) ? args.json : path.resolve(SERVER_ROOT, args.json);
-          const jsonDir = path.dirname(jsonPath);
-          if (!fs.existsSync(jsonDir)) {
-            fs.mkdirSync(jsonDir, { recursive: true });
-          }
-          fs.writeFileSync(jsonPath, JSON.stringify(finalSummary, null, 2));
-          console.log(`摘要 JSON 已写入: ${jsonPath}`);
-        } catch (e) {
-          console.error(`写入 JSON 摘要失败: ${e.message}`);
-        }
+      const unified = buildUnifiedSummary(rawSummary, args, stamp, logPath);
+      writeUnifiedRunRecord(unified);
+      const jsonPathWritten = exportJsonSummary(args.json, unified, logger);
+      if (jsonPathWritten) {
+        unified.jsonPath = jsonPathWritten;
+        writeUnifiedRunRecord(unified);
       }
+      printUnifiedSummary(unified, logger, jsonPathWritten);
 
       logger.close();
-      process.exit(FAIL.INVALID_DATA_DIR);
+      process.exit(failCode);
     }
   }
 
@@ -779,19 +810,28 @@ async function main() {
         const installStr = data.install
           ? (data.install.executed ? '安装执行' : (data.install.skipped ? '安装跳过' : '安装未到'))
           : '-';
+        const dataDirsStr = data.dataDirs ? data.dataDirs.join(', ') : '-';
         console.log(`  ${ts}  ${resultStr}  端口=${port}  时长=${dur}  安装=${installStr}`);
         console.log(`    命令: ${cmd}`);
+        console.log(`    参数 argv: ${JSON.stringify(data.argv || [])}`);
+        console.log(`    数据目录: ${dataDirsStr}`);
         if (data.rounds) {
           for (const r of data.rounds) {
             const ri = r.ok ? '✅' : '❌';
-            const smokeStr = r.smoke ? `${r.smoke.passed}/${r.smoke.passed + r.smoke.failed}` : '-';
-            console.log(`    ${ri} ${r.label} PID=${r.pid || '-'} 数据=${r.dataDir || '-'} 烟雾=${smokeStr} 结果=${r.ok ? 'PASS' : 'FAIL:' + failCodeToString(r.failCode)}`);
+            const smokeStr = r.smoke ? `${r.smoke.passed}/${r.smoke.passed + r.smoke.failed}` : (r.smoke && r.smoke.skipped ? '跳过' : '-');
+            const rdur = r.durationMs != null ? `${(r.durationMs / 1000).toFixed(1)}s`
+                      : (r.duration != null ? `${(r.duration / 1000).toFixed(1)}s` : 'n/a');
+            console.log(`    ${ri} ${r.label} PID=${r.pid || '-'} 端口=${r.port || '-'} 数据=${r.dataDir || '-'} 烟雾=${smokeStr} 时长=${rdur} 结果=${r.ok ? 'PASS' : 'FAIL:' + failCodeToString(r.failCode)}`);
           }
         }
         if (data.failReason) {
           console.log(`    失败原因: ${data.failReason}`);
         }
-        console.log(`    日志: ${data.logPath || '-'}  记录: ${data.recordPath || '-'}`);
+        console.log(`    日志: ${data.logPath || '-'}`);
+        console.log(`    记录: ${data.recordPath || '-'}`);
+        if (data.jsonPath) {
+          console.log(`    JSON: ${data.jsonPath}`);
+        }
         console.log('');
       } catch (_) {
         console.log(`  [无法读取: ${f}]`);
@@ -940,67 +980,65 @@ async function main() {
   }
 
   finalSummary.endedAt = Date.now();
-  logger.step('最终摘要');
-  logger.info(`结果: ${finalSummary.finalResult === 'pass' || finalSummary.finalResult === 'pass_round1_only' ? '✅ 全部通过' : '❌ 失败'}`);
-  logger.info(`日志文件: ${logPath}`);
-  for (const r of finalSummary.rounds) {
-    const icon = r.ok ? '✅' : '❌';
-    logger.info(`${icon} ${r.label} 端口=${r.port} 数据=${r.dataDir} 时长=${r.duration ? (r.duration / 1000).toFixed(1) + 's' : 'n/a'} 结果=${r.ok ? 'PASS' : 'FAIL:' + failCodeToString(r.failCode) + (r.failReason ? ' - ' + r.failReason : '')}`);
-  }
 
-  if (finalSummary.failCode !== 0) {
-    logger.error(`失败分类: ${failCodeToString(finalSummary.failCode)}`);
-    logger.error(`失败原因: ${finalSummary.failReason}`);
-  }
-
-  const recordPathResult = writeRunRecord(stamp, logPath, finalSummary);
+  const unified = buildUnifiedSummary(finalSummary, args, stamp, logPath);
+  const recordPathResult = writeUnifiedRunRecord(unified);
   if (recordPathResult) {
+    unified.recordPath = recordPathResult;
     finalSummary.recordPath = recordPathResult;
-    logger.info(`运行记录: ${recordPathResult}`);
   }
-
-  if (args.json) {
-    try {
-      const jsonPath = path.isAbsolute(args.json) ? args.json : path.resolve(SERVER_ROOT, args.json);
-      const jsonDir = path.dirname(jsonPath);
-      if (!fs.existsSync(jsonDir)) {
-        fs.mkdirSync(jsonDir, { recursive: true });
-        logger.info(`已创建 JSON 输出父目录: ${jsonDir}`);
-      }
-      fs.writeFileSync(jsonPath, JSON.stringify(finalSummary, null, 2));
-      logger.info(`摘要 JSON 已写入: ${jsonPath}`);
-    } catch (e) {
-      logger.error(`写入 JSON 摘要失败: ${e.message}`);
-    }
-  }
+  const jsonPathWritten = exportJsonSummary(args.json, unified, logger);
+  if (jsonPathWritten) unified.jsonPath = jsonPathWritten;
+  writeUnifiedRunRecord(unified);
+  printUnifiedSummary(unified, logger, jsonPathWritten);
 
   logger.close();
   process.exit(finalSummary.failCode || 0);
 }
 
 main().catch((e) => {
+  const failCode = FAIL.UNKNOWN;
+  const failReason = e && e.message ? e.message : String(e);
   console.error(`[致命] 顶层异常:`, e && e.stack ? e.stack : e);
   try {
     const ts = new Date().toISOString().replace(/[:.]/g, '-');
     const recDir = path.join(__dirname, 'smoke_records');
+    const logDir = path.join(__dirname, 'smoke_logs');
     if (!fs.existsSync(recDir)) fs.mkdirSync(recDir, { recursive: true });
+    if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
     const recPath = path.join(recDir, `record_${ts}.json`);
-    fs.writeFileSync(recPath, JSON.stringify({
-      id: `record_${ts}`,
-      timestamp: Date.now(),
-      timestampISO: new Date().toISOString(),
-      command: `node smoke_test.js ${process.argv.slice(2).join(' ')}`,
-      argv: process.argv.slice(2),
-      exitCode: FAIL.UNKNOWN,
+    const logPath = path.join(logDir, `smoke_${ts}.log`);
+
+    const rawSummary = {
+      startedAt: Date.now(),
+      endedAt: Date.now(),
+      rounds: [{
+        label: '顶层异常',
+        port: null,
+        dataDir: null,
+        ok: false,
+        failCode,
+        failReason,
+        durationMs: 0,
+        pid: null,
+        steps: {},
+      }],
+      tempDirs: [],
       finalResult: 'fatal_error',
-      failCode: FAIL.UNKNOWN,
-      failReason: e && e.message ? e.message : String(e),
-      durationMs: 0,
-      logPath: null,
+      failCode,
+      failReason,
+      logPath,
+      port: null,
+      restartPort: null,
       recordPath: recPath,
-      install: { executed: false, skipped: false, ok: false },
-      rounds: [],
-    }, null, 2));
+    };
+
+    const args = parseArgs(process.argv);
+    const unified = buildUnifiedSummary(rawSummary, args || {}, ts, logPath);
+    unified.timestampISO = new Date().toISOString();
+    unified.exitCode = failCode;
+    writeUnifiedRunRecord(unified);
+    printUnifiedSummary(unified, null, null);
   } catch (_) {}
-  process.exit(FAIL.UNKNOWN);
+  process.exit(failCode);
 });
