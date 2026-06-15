@@ -175,18 +175,27 @@ curl -X POST http://localhost:3001/api/time/advance \
   - 审计日志中有 `expire_waitlist` 记录。
 - 若需要手动继续：手动点击下一位的 `🎁 发放机会` 即可。
 
-#### 3. 无原因恢复爽约记录
+#### 3. 无原因恢复爽约记录（所有角色一视同仁，无管理员例外）
 
 - 先按上面制造一条爽约记录。
-- **clerk 角色尝试恢复**（使用 clerk1/clerk123 登录）：
+- **异常路径：任意角色空原因恢复均被拒绝**（admin / clerk 都一样）：
   - 进入 **⚠️ 爽约/恢复** 页，点击对应记录的 `↩️ 恢复`。
-  - 在弹窗里故意留空原因，确认。
-  - 系统返回：`恢复爽约必须提供原因（管理员除外）`。
-  - 填原因后可正常恢复。
-- **admin 角色尝试无原因恢复**：
-  - 同样点恢复，在弹窗里什么都不填直接确认。
-  - 系统成功恢复，`recovery_reason` 字段写入“（无原因恢复）”。
-  - 审计日志新增 `recover_noshow` 记录，恢复原因就是“（无原因恢复）”。
+  - 在弹窗里留空原因、只打空格、或点取消；或从 API 传 null / 空串 / 纯空格 / 不传 reason 字段。
+  - 系统统一返回 400：`恢复爽约必须提供原因`。
+  - 爽约记录状态不变，预约状态不变，号源名额不变，无通知、无审计。
+  - 直接 API 绕过示例（均返回 400）：
+    ```bash
+    curl -X POST http://localhost:3001/api/no-show-records/{id}/recover \
+      -H "Authorization: Bearer {token}" -H "Content-Type: application/json" \
+      -d '{"reason":""}'         # 空字符串 → 400
+    curl -X POST ... -d '{"reason":"   "}'   # 纯空格 → 400
+    curl -X POST ... -d '{"reason":null}'    # null → 400
+    curl -X POST ... -d '{}'                 # 不传字段 → 400
+    ```
+- **正常路径：提供真实原因后恢复成功**：
+  - 填入真实原因（前后带空格也会被自动 trim），确认。
+  - 系统返回 200，`recovery_reason` 字段写入 trim 后的真实原因。
+  - 审计日志新增 `recover_noshow` 记录，恢复原因即用户填写的真实原因。
 - 恢复后副作用：
   - 对应预约记录变回 `confirmed`。
   - 号源 `available_count` 重新 -1（占回名额）。
