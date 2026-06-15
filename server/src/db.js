@@ -2,9 +2,19 @@ const initSqlJs = require('sql.js');
 const path = require('path');
 const fs = require('fs');
 
-const dbPath = path.join(__dirname, '..', 'data', 'app.db');
-const dataDir = path.dirname(dbPath);
+const envDataDir = process.env.DATA_DIR;
+const envDbPath = process.env.DB_PATH;
+
+const dataDir = envDataDir
+  ? path.isAbsolute(envDataDir) ? envDataDir : path.join(__dirname, '..', envDataDir)
+  : path.join(__dirname, '..', 'data');
+const dbPath = envDbPath
+  ? path.isAbsolute(envDbPath) ? envDbPath : path.join(__dirname, '..', envDbPath)
+  : path.join(dataDir, 'app.db');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+
+console.log(`[DB] 数据目录: ${dataDir}`);
+console.log(`[DB] 数据库文件: ${dbPath}`);
 
 let _db = null;
 

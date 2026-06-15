@@ -9,7 +9,9 @@
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev",
     "start": "cd server && npm start",
-    "build": "cd client && npm run build"
+    "build": "cd client && npm run build",
+    "smoke-test": "cd server && npm run smoke-test",
+    "smoke-test:once": "cd server && npm run smoke-test:once"
   },
   "keywords": ["outpatient", "waitlist", "appointment"],
   "author": "",

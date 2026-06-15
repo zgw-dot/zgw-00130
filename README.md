@@ -22,62 +22,66 @@
 
 ---
 
-## 快速开始
+## 快速开始（零启动验收入口）
 
-### 1. 安装依赖
+本项目提供**统一验收入口**，自动串起安装、seed、服务启动、健康检查、API冒烟和跨重启二次验证。执行单条命令即可完成从零到通过的完整链路，不再需要人工开窗口跑零散命令：
 
 ```bash
-# 先进入项目根目录
+# 进入项目根目录
 cd zgw-00130
 
-# 方式一（推荐）：一键安装所有依赖
-npm run install:all
+# 推荐（一次跑两轮验证：首次启动 + 跨重启换端口/数据目录）
+npm run smoke-test
 
-# 方式二：手动分步
-npm install
-cd server && npm install
-cd ../client && npm install
+# 或只跑一次启动验证（更快）
+npm run smoke-test:once
 ```
 
-> 注意：项目使用 `sql.js`（SQLite WASM），无需原生编译环境（不依赖 Visual Studio Build Tools、Python 或 node-gyp），在 Windows / macOS / Linux 上直接 `npm install` 即可。
+**统一验收脚本 `server/smoke_test.js` 会自动完成以下步骤：**
 
-### 2. 初始化种子数据
+| 步骤 | 自动执行 | 失败行为 |
+|---|---|---|
+| 1. 端口占用检查 | 启动前校验端口空闲，禁止复用机器上已有服务 | 硬失败：`port_occupied`，提示换 `--port` |
+| 2. 依赖安装 | `server/node_modules` 不存在时自动 `npm install` | 硬失败：`install_fail`，带 npm 错误输出 |
+| 3. 数据目录 + seed | 生成临时目录 → 删旧库 → 跑 `src/seed.js` → 校验 DB 文件 | 硬失败：`seed_fail` |
+| 4. 启动后端 + 健康检查 | 以自有子进程拉起（记录 PID，确认是本次拉起） → 轮询 `/api/health` 至超时 | 硬失败：`server_not_up` / `health_timeout` |
+| 5. API 冒烟测试 | admin/clerk 登录 + 14 个公开/鉴权接口 | 硬失败：`smoke_fail` 逐项列出 |
+| 6. 跨重启二轮验证 | 停掉进程 → 换端口（3001→3002）+ 换独立临时数据目录 → 再跑 1-5 步 | 硬失败：`restart_fail` |
+| 7. 清理 | 自动杀进程 + 删除临时数据目录（`--keep-data` 可保留） | - |
+
+> 脚本失败代码和原因会写入控制台摘要和 `server/smoke_logs/smoke_*.log`，便于定位卡住的环节。
+
+### 常用参数（在 `server/` 下直接跑脚本可追加）
 
 ```bash
 cd server
-npm run seed
+node smoke_test.js --help                   # 查看全部选项
+node smoke_test.js --port 3099 --no-restart  # 单次跑自定义端口
+node smoke_test.js --data-dir ./tmp_acceptance --keep-data  # 自定义数据目录并保留
 ```
 
-种子数据会创建：
+---
 
-- **用户**：admin / admin123（管理员），clerk1 / clerk123，clerk2 / clerk123（办事员）
-- **医生**：5 名（内科、外科、儿科、妇产科、眼科）
-- **号源**：今明两天共 8 个号源（含已约满的、有剩余名额的各种情况）
-- **患者**：8 名示例患者
-- **预约**：8 条示例预约记录
-- **配置**：9 条默认全局配置
+### 手动分步（如需要自行开发调试）
 
-### 3. 启动服务
+不用于验收链路；若需要手动启动前后端开发服务：
 
 ```bash
-# 方式一（推荐）：同时启动前后端
-cd ..   # 回到项目根
-npm run dev
+# 1. 安装依赖（同 smoke-test 内部）
+npm run install:all
 
-# 方式二：分别启动
-# 终端 1：后端（端口 3001）
+# 2. 初始化种子数据
+cd server
+npm run seed
+
+# 3. 启动前后端（需两个终端）
+# 终端 1：后端 http://localhost:3001
 cd server && npm run dev
-# 终端 2：前端（端口 5173）
+# 终端 2：前端 http://localhost:5173
 cd client && npm run dev
 ```
 
-- 后端 API：http://localhost:3001
-- 前端界面：http://localhost:5173
-- 健康检查：http://localhost:3001/api/health
-
-### 4. 登录
-
-打开 http://localhost:5173，使用 `admin / admin123` 或 `clerk1 / clerk123` 登录。
+登录账号：`admin / admin123`，`clerk1 / clerk123`
 
 ---
 

@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "seed": "node src/seed.js"
+    "seed": "node src/seed.js",
+    "smoke-test": "node smoke_test.js",
+    "smoke-test:once": "node smoke_test.js --no-restart"
   },
   "keywords": [],
   "author": "",

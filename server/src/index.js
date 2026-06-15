@@ -15,7 +15,10 @@ const wl = require('./waitlist');
 const PORT = process.env.PORT || 3001;
 const app = express();
 
-const dataDir = path.join(__dirname, '..', 'data');
+const envDataDir = process.env.DATA_DIR;
+const dataDir = envDataDir
+  ? path.isAbsolute(envDataDir) ? envDataDir : path.join(__dirname, '..', envDataDir)
+  : path.join(__dirname, '..', 'data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
 app.use(cors());
