@@ -14,7 +14,7 @@
 | 🩺 预约管理 | 预约列表、手动标记爽约并释放号源、自动通知下一位（可配置） |
 | 👤 患者管理 | 患者录入与搜索 |
 | 🔔 通知日志 | 所有通知消息的完整留痕（机会/确认/过号/过期/恢复/手动） |
-| ⚠️ 爽约 / 恢复 | 爽约记录列表、带原因恢复（clerk 必须填原因，admin 允许无原因恢复） |
+| ⚠️ 爽约 / 恢复 | 爽约记录列表、带原因恢复（所有角色必须提供真实原因，空值/纯空格均拒绝，前后端双重校验） |
 | ⚙️ 全局配置 | 候补超时、恢复策略、权限开关等，全部持久化并带审计 |
 | 📝 审计日志 | 队列变动、配置修改、时间控制、导出等全部操作的审计（仅 admin 可看） |
 | ⏰ 时间控制 | 绝对时间设置、速度倍率、手动推进、手动触发超时扫描（README 详述） |
@@ -284,7 +284,7 @@ zgw-00130/
 | GET | /api/appointments | 预约列表 | 登录 |
 | POST | /api/appointments/:id/release-noshow | 标记爽约并释放号源 | 登录 |
 | GET | /api/no-show-records | 爽约/恢复记录列表 | 登录 |
-| POST | /api/no-show-records/:id/recover | 恢复爽约（clerk 需原因） | 登录 |
+| POST | /api/no-show-records/:id/recover | 恢复爽约（所有角色必须提供非空真实原因） | 登录 |
 | GET / PUT | /api/config | 读取 / 修改全局配置 | 登录 / 按开关限 admin |
 | GET | /api/audit-logs | 审计日志 | admin 仅 |
 | GET | /api/export/waitlist/:slotId | 导出候补名单 CSV（UTF-8 BOM） | 登录 |
