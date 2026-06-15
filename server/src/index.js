@@ -16,6 +16,9 @@ const suspensionDao = require('./suspensionDao');
 const suspensionCsv = require('./suspensionCsv');
 const roomService = require('./roomService');
 const roomDao = require('./roomDao');
+const rescheduleService = require('./rescheduleService');
+const rescheduleDao = require('./rescheduleDao');
+const rescheduleCsv = require('./rescheduleCsv');
 
 const PORT = process.env.PORT || 3001;
 const app = express();
@@ -736,6 +739,164 @@ app.get('/api/slots', authMiddleware, (req, res, next) => {
     sql += ' ORDER BY s.date, s.period';
     const slots = db.prepare(sql).all(...params);
     res.json({ slots });
+  } catch (e) { next(e); }
+});
+
+app.get('/api/reschedule/batches', authMiddleware, (req, res, next) => {
+  try {
+    const { status } = req.query;
+    const batches = rescheduleService.listBatches(status || null);
+    res.json({ batches });
+  } catch (e) { next(e); }
+});
+
+app.post('/api/reschedule/batches', authMiddleware, (req, res, next) => {
+  try {
+    const { title, reason, remarks } = req.body || {};
+    if (!title) return res.status(400).json({ error: '请输入批次标题' });
+    const batch = rescheduleService.createDraftBatch(req, title, reason, remarks);
+    res.json({ batch });
+  } catch (e) { next(e); }
+});
+
+app.get('/api/reschedule/batches/:id', authMiddleware, (req, res, next) => {
+  try {
+    const detail = rescheduleService.getBatchDetail(parseInt(req.params.id));
+    if (!detail) return res.status(404).json({ error: '批次不存在' });
+    res.json(detail);
+  } catch (e) { next(e); }
+});
+
+app.post('/api/reschedule/batches/:id/items', authMiddleware, (req, res, next) => {
+  try {
+    const { items } = req.body || {};
+    if (!items || !Array.isArray(items)) return res.status(400).json({ error: '请提供条目数组' });
+    const result = rescheduleService.addBatchItems(req, parseInt(req.params.id), items);
+    res.json({ items: result });
+  } catch (e) { next(e); }
+});
+
+app.post('/api/reschedule/batches/:id/targets', authMiddleware, (req, res, next) => {
+  try {
+    const { targetMap } = req.body || {};
+    if (!targetMap) return res.status(400).json({ error: '请提供目标号源映射' });
+    const result = rescheduleService.setItemTargets(req, parseInt(req.params.id), targetMap);
+    res.json({ items: result });
+  } catch (e) { next(e); }
+});
+
+app.get('/api/reschedule/batches/:id/preview', authMiddleware, (req, res, next) => {
+  try {
+    const preview = rescheduleService.previewConflicts(parseInt(req.params.id));
+    res.json(preview);
+  } catch (e) { next(e); }
+});
+
+app.post('/api/reschedule/batches/:id/execute', authMiddleware, (req, res, next) => {
+  try {
+    const result = rescheduleService.executeBatch(req, parseInt(req.params.id));
+    res.json(result);
+  } catch (e) { next(e); }
+});
+
+app.post('/api/reschedule/batches/:id/revoke', authMiddleware, (req, res, next) => {
+  try {
+    const { reason } = req.body || {};
+    const result = rescheduleService.revokeBatch(req, parseInt(req.params.id), reason);
+    res.json(result);
+  } catch (e) { next(e); }
+});
+
+app.post('/api/reschedule/batches/:id/items/:itemId/revoke', authMiddleware, (req, res, next) => {
+  try {
+    const { reason } = req.body || {};
+    const result = rescheduleService.revokeSingleItem(req, parseInt(req.params.id), parseInt(req.params.itemId), reason);
+    res.json(result);
+  } catch (e) { next(e); }
+});
+
+app.get('/api/reschedule/config', authMiddleware, (req, res, next) => {
+  try {
+    const config = rescheduleService.getConfig();
+    res.json({ config });
+  } catch (e) { next(e); }
+});
+
+app.put('/api/reschedule/config', authMiddleware, requireAdmin, (req, res, next) => {
+  try {
+    const { key, value } = req.body || {};
+    if (!key || value === undefined) return res.status(400).json({ error: '请提供配置键和值' });
+    const result = rescheduleService.updateConfig(req, key, value);
+    res.json(result);
+  } catch (e) { next(e); }
+});
+
+app.get('/api/reschedule/available-slots', authMiddleware, (req, res, next) => {
+  try {
+    const { sourceSlotId, mode } = req.query;
+    if (!sourceSlotId) return res.status(400).json({ error: '请提供源号源ID' });
+    const slots = rescheduleService.findAvailableSlots(parseInt(sourceSlotId), mode || 'same_doctor');
+    res.json({ slots });
+  } catch (e) { next(e); }
+});
+
+app.get('/api/reschedule/appointments', authMiddleware, (req, res, next) => {
+  try {
+    const { date, doctorId, department } = req.query;
+    const appointments = rescheduleService.loadAppointmentsByDate(date || null, doctorId || null, department || null);
+    res.json({ list: appointments });
+  } catch (e) { next(e); }
+});
+
+app.get('/api/reschedule/waitlist', authMiddleware, (req, res, next) => {
+  try {
+    const { date, doctorId, department } = req.query;
+    const waitlist = rescheduleService.loadWaitlistByDate(date || null, doctorId || null, department || null);
+    res.json({ list: waitlist });
+  } catch (e) { next(e); }
+});
+
+app.post('/api/reschedule/csv/import', authMiddleware, (req, res, next) => {
+  try {
+    const { content } = req.body || {};
+    if (!content) return res.status(400).json({ error: '请提供 CSV 内容' });
+    const result = rescheduleCsv.importRescheduleList(req, content);
+    res.json(result);
+  } catch (e) { next(e); }
+});
+
+app.get('/api/reschedule/csv/export/:batchId/success', authMiddleware, (req, res, next) => {
+  try {
+    const result = rescheduleCsv.exportSuccessDetails(req, parseInt(req.params.batchId));
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(result.fileName)}"`);
+    res.send(result.csv);
+  } catch (e) { next(e); }
+});
+
+app.get('/api/reschedule/csv/export/:batchId/failure', authMiddleware, (req, res, next) => {
+  try {
+    const result = rescheduleCsv.exportFailureDetails(req, parseInt(req.params.batchId));
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(result.fileName)}"`);
+    res.send(result.csv);
+  } catch (e) { next(e); }
+});
+
+app.get('/api/reschedule/csv/export/:batchId/all', authMiddleware, (req, res, next) => {
+  try {
+    const result = rescheduleCsv.exportAllDetails(req, parseInt(req.params.batchId));
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(result.fileName)}"`);
+    res.send(result.csv);
+  } catch (e) { next(e); }
+});
+
+app.get('/api/reschedule/exports', authMiddleware, (req, res, next) => {
+  try {
+    const { batchId } = req.query;
+    const exports = rescheduleCsv.listExports(batchId || null);
+    res.json({ exports });
   } catch (e) { next(e); }
 });
 

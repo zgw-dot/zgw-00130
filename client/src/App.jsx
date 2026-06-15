@@ -9,6 +9,7 @@ import Notifications, { Patients, Appointments, NoShowRecords } from './pages/No
 import Config, { AuditLogs, TimeControl } from './pages/Config.jsx'
 import Suspension from './pages/Suspension.jsx'
 import RoomCalendar from './pages/RoomCalendar.jsx'
+import Reschedule from './pages/Reschedule.jsx'
 
 const getUser = () => {
   try { return JSON.parse(localStorage.getItem('auth_user') || 'null') } catch { return null }
@@ -34,6 +35,7 @@ function App() {
 
   const menuItems = [
     { to: '/', label: '仪表盘', icon: '📊', roles: ['admin', 'clerk'] },
+    { to: '/reschedule', label: '改期工作台', icon: '🔄', roles: ['admin', 'clerk'] },
     { to: '/suspension', label: '停诊改期', icon: '🚫', roles: ['admin', 'clerk'] },
     { to: '/rooms', label: '诊室日历', icon: '🚪', roles: ['admin', 'clerk'] },
     { to: '/slots', label: '号源管理', icon: '📅', roles: ['admin', 'clerk'] },
@@ -76,6 +78,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<Navigate to="/" />} />
           <Route path="/" element={<Dashboard user={user} />} />
+          <Route path="/reschedule" element={<Reschedule user={user} />} />
           <Route path="/suspension" element={<Suspension user={user} />} />
           <Route path="/slots" element={<Slots user={user} />} />
           <Route path="/slots/:id" element={<SlotDetail user={user} />} />

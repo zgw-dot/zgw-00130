@@ -64,4 +64,28 @@ export const roomApi = {
   previewLock: (id, params) => api.get(`/rooms/${id}/preview-lock`, { params })
 }
 
+export const rescheduleApi = {
+  listBatches: (status) => api.get('/reschedule/batches', { params: { status } }),
+  createBatch: (data) => api.post('/reschedule/batches', data),
+  getBatch: (id) => api.get(`/reschedule/batches/${id}`),
+  updateItems: (id, items) => api.post(`/reschedule/batches/${id}/items`, { items }),
+  setTargets: (id, targetMap) => api.post(`/reschedule/batches/${id}/targets`, { targetMap }),
+  preview: (id) => api.get(`/reschedule/batches/${id}/preview`),
+  execute: (id) => api.post(`/reschedule/batches/${id}/execute`),
+  revoke: (id, reason) => api.post(`/reschedule/batches/${id}/revoke`, { reason }),
+  revokeItem: (batchId, itemId, reason) => api.post(`/reschedule/batches/${batchId}/items/${itemId}/revoke`, { reason }),
+  getConfig: () => api.get('/reschedule/config'),
+  updateConfig: (key, value) => api.put('/reschedule/config', { key, value }),
+  getAvailableSlots: (sourceSlotId, mode) => api.get('/reschedule/available-slots', { params: { sourceSlotId, mode } }),
+  getAppointments: (params) => api.get('/reschedule/appointments', { params }),
+  getWaitlist: (params) => api.get('/reschedule/waitlist', { params }),
+  importCsv: (content) => api.post('/reschedule/csv/import', { content }),
+  exportSuccess: (batchId) => api.get(`/reschedule/csv/export/${batchId}/success`, { responseType: 'blob' }),
+  exportFailure: (batchId) => api.get(`/reschedule/csv/export/${batchId}/failure`, { responseType: 'blob' }),
+  exportAll: (batchId) => api.get(`/reschedule/csv/export/${batchId}/all`, { responseType: 'blob' }),
+  listExports: (batchId) => api.get('/reschedule/exports', { params: { batchId } }),
+  getDoctors: () => api.get('/doctors'),
+  getSlots: (params) => api.get('/slots', { params })
+}
+
 export default api

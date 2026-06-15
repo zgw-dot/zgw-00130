@@ -396,6 +396,90 @@ proxy.initTables = () => {
       sent_at DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS reschedule_batches (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      batch_no TEXT UNIQUE NOT NULL,
+      title TEXT NOT NULL,
+      reason TEXT,
+      status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft', 'previewed', 'executing', 'completed', 'revoked')),
+      created_by INTEGER NOT NULL,
+      executed_by INTEGER,
+      revoked_by INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      executed_at DATETIME,
+      revoked_at DATETIME,
+      remarks TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS reschedule_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      batch_id INTEGER NOT NULL,
+      source_type TEXT NOT NULL CHECK(source_type IN ('appointment', 'waitlist')),
+      source_id INTEGER NOT NULL,
+      patient_id INTEGER NOT NULL,
+      source_slot_id INTEGER NOT NULL,
+      target_slot_id INTEGER,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'success', 'failed', 'skipped', 'cancelled')),
+      conflict_type TEXT,
+      conflict_detail TEXT,
+      result_message TEXT,
+      old_appointment_status TEXT,
+      old_waitlist_status TEXT,
+      new_appointment_id INTEGER,
+      new_waitlist_id INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      processed_at DATETIME
+    );
+
+    CREATE TABLE IF NOT EXISTS reschedule_results (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      batch_id INTEGER NOT NULL,
+      item_id INTEGER NOT NULL,
+      patient_id INTEGER NOT NULL,
+      source_slot_id INTEGER NOT NULL,
+      target_slot_id INTEGER,
+      source_type TEXT NOT NULL,
+      result TEXT NOT NULL CHECK(result IN ('success', 'failed', 'skipped')),
+      error_message TEXT,
+      rollback_snapshot TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS reschedule_exports (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      batch_id INTEGER,
+      export_type TEXT NOT NULL CHECK(export_type IN ('import_list', 'success_details', 'failure_details', 'all_details')),
+      file_path TEXT NOT NULL,
+      file_name TEXT NOT NULL,
+      record_count INTEGER,
+      created_by INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS reschedule_notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      batch_id INTEGER NOT NULL,
+      patient_id INTEGER NOT NULL,
+      appointment_id INTEGER,
+      waitlist_id INTEGER,
+      notification_type TEXT NOT NULL CHECK(notification_type IN ('reschedule_success', 'reschedule_failed', 'reschedule_cancelled', 'reschedule_auto_waitlist')),
+      content TEXT NOT NULL,
+      sent BOOLEAN NOT NULL DEFAULT 0,
+      sent_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS reschedule_revocations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      batch_id INTEGER NOT NULL,
+      reason TEXT,
+      restored_appointments INTEGER DEFAULT 0,
+      restored_waitlist INTEGER DEFAULT 0,
+      restored_slots INTEGER DEFAULT 0,
+      created_by INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   const insertConfig = db.prepare(`INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)`);
@@ -412,7 +496,10 @@ proxy.initTables = () => {
     ['suspension_waitlist_strategy', 'auto_postpone'],
     ['suspension_auto_notify', 'true'],
     ['room_lock_strategy', 'block_new_only'],
-    ['room_lock_allow_clerk_export', 'true']
+    ['room_lock_allow_clerk_export', 'true'],
+    ['reschedule_allow_cross_doctor', 'true'],
+    ['reschedule_auto_fill_waitlist', 'true'],
+    ['reschedule_clerk_can_submit', 'true']
   ];
   defaults.forEach(([k, v]) => insertConfig.run(k, v));
 
