@@ -1,0 +1,23 @@
+{
+  "startedAt": 1781503537694,
+  "endedAt": 1781503537694,
+  "rounds": [
+    {
+      "label": "参数校验",
+      "port": 3001,
+      "dataDir": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\review-bad\\as-file.txt",
+      "ok": false,
+      "failCode": 8,
+      "failReason": "data-dir 参数指向一个文件而非目录: D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\review-bad\\as-file.txt",
+      "duration": 0,
+      "steps": {}
+    }
+  ],
+  "tempDirs": [],
+  "finalResult": "fail_invalid_data_dir",
+  "failCode": 8,
+  "failReason": "data-dir 参数指向一个文件而非目录: D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\review-bad\\as-file.txt",
+  "logPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_logs\\smoke_2026-06-15T06-05-37-685Z.log",
+  "port": 3001,
+  "restartPort": 3002
+}

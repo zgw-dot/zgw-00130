@@ -1,0 +1,31 @@
+{
+  "startedAt": 1781503624450,
+  "rounds": [
+    {
+      "label": "第一轮（首次启动）",
+      "port": 3999,
+      "dataDir": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\tmp_smoke_39316_1",
+      "ok": false,
+      "failCode": 2,
+      "failReason": "端口 3999 被占用",
+      "duration": 5,
+      "steps": {
+        "port_check": {
+          "ok": false,
+          "duration": 0
+        }
+      }
+    }
+  ],
+  "tempDirs": [
+    "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\tmp_smoke_39316_1"
+  ],
+  "finalResult": "fail_round1",
+  "failCode": 2,
+  "failReason": "第一轮失败: 端口 3999 被占用",
+  "logPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_logs\\smoke_2026-06-15T06-07-04-446Z.log",
+  "port": 3999,
+  "restartPort": 3002,
+  "endedAt": 1781503624457,
+  "recordPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_records\\record_2026-06-15T06-07-04-446Z.json"
+}

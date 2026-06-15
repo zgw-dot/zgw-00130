@@ -80,6 +80,7 @@ function printHelp() {
   5  health_timeout     健康检查超时
   6  smoke_fail         API 冒烟测试失败
   7  restart_fail       跨重启二次验证失败
+  8  invalid_data_dir   data-dir 参数非法 (指向文件而非目录)
   99 unknown            未知异常
 `);
 }
@@ -130,6 +131,7 @@ const FAIL = {
   HEALTH_TIMEOUT: 5,
   SMOKE: 6,
   RESTART: 7,
+  INVALID_DATA_DIR: 8,
   UNKNOWN: 99,
 };
 
@@ -137,7 +139,7 @@ function failCodeToString(code) {
   const map = {
     1: 'install_fail', 2: 'port_occupied', 3: 'seed_fail',
     4: 'server_not_up', 5: 'health_timeout', 6: 'smoke_fail',
-    7: 'restart_fail', 99: 'unknown',
+    7: 'restart_fail', 8: 'invalid_data_dir', 99: 'unknown',
   };
   return map[code] || 'unknown';
 }
@@ -628,6 +630,9 @@ function writeRunRecord(stamp, logPath, finalSummary) {
       recordPath,
       install: installRecord,
       rounds: recordRounds,
+      port: finalSummary.port,
+      restartPort: finalSummary.restartPort,
+      tempDirs: finalSummary.tempDirs || [],
     };
 
     fs.writeFileSync(recordPath, JSON.stringify(record, null, 2));
@@ -637,9 +642,109 @@ function writeRunRecord(stamp, logPath, finalSummary) {
   }
 }
 
+function writeEarlyFailureRecord(stamp, args, failCode, failReason, logPath, recordPath, dataDir) {
+  try {
+    if (!fs.existsSync(RECORDS_DIR)) fs.mkdirSync(RECORDS_DIR, { recursive: true });
+    const record = {
+      id: `record_${stamp}`,
+      timestamp: Date.now(),
+      timestampISO: new Date().toISOString(),
+      command: `node smoke_test.js ${process.argv.slice(2).join(' ')}`,
+      argv: process.argv.slice(2),
+      exitCode: failCode,
+      finalResult: 'fail_early',
+      failCode,
+      failReason,
+      durationMs: 0,
+      logPath,
+      recordPath,
+      install: { executed: false, skipped: false, ok: false },
+      rounds: [{
+        label: '参数校验',
+        port: args.port,
+        dataDir,
+        ok: false,
+        failCode,
+        failReason,
+        durationMs: 0,
+        pid: null,
+        healthCheck: null,
+        seed: null,
+        smoke: null,
+        steps: {},
+      }],
+      port: args.port,
+      restartPort: args.restartPort,
+      tempDirs: [],
+    };
+    fs.writeFileSync(recordPath, JSON.stringify(record, null, 2));
+    return record;
+  } catch (e) {
+    return null;
+  }
+}
+
 async function main() {
   const args = parseArgs(process.argv);
   if (args.help) { printHelp(); process.exit(0); }
+
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const logPath = path.join(LOG_DIR, `smoke_${stamp}.log`);
+  const recordPath = path.join(RECORDS_DIR, `record_${stamp}.json`);
+
+  if (args.dataDir) {
+    const dataDirAbs = path.isAbsolute(args.dataDir) ? args.dataDir : path.resolve(SERVER_ROOT, args.dataDir);
+    if (fileExists(dataDirAbs)) {
+      const failReason = `data-dir 参数指向一个文件而非目录: ${dataDirAbs}`;
+      console.error(`[参数错误] ${failReason}`);
+      console.error(`失败分类: invalid_data_dir (exitCode=${FAIL.INVALID_DATA_DIR})`);
+
+      const logger = new Logger(logPath);
+      logger.error(failReason);
+      logger.error(`失败分类: ${failCodeToString(FAIL.INVALID_DATA_DIR)} (exitCode=${FAIL.INVALID_DATA_DIR})`);
+
+      const finalSummary = {
+        startedAt: Date.now(),
+        endedAt: Date.now(),
+        rounds: [{
+          label: '参数校验',
+          port: args.port,
+          dataDir: dataDirAbs,
+          ok: false,
+          failCode: FAIL.INVALID_DATA_DIR,
+          failReason,
+          duration: 0,
+          steps: {},
+        }],
+        tempDirs: [],
+        finalResult: 'fail_invalid_data_dir',
+        failCode: FAIL.INVALID_DATA_DIR,
+        failReason,
+        logPath,
+        port: args.port,
+        restartPort: args.restartPort,
+      };
+
+      writeEarlyFailureRecord(stamp, args, FAIL.INVALID_DATA_DIR, failReason, logPath, recordPath, dataDirAbs);
+
+      if (args.json) {
+        try {
+          const jsonPath = path.isAbsolute(args.json) ? args.json : path.resolve(SERVER_ROOT, args.json);
+          const jsonDir = path.dirname(jsonPath);
+          if (!fs.existsSync(jsonDir)) {
+            fs.mkdirSync(jsonDir, { recursive: true });
+          }
+          fs.writeFileSync(jsonPath, JSON.stringify(finalSummary, null, 2));
+          console.log(`摘要 JSON 已写入: ${jsonPath}`);
+        } catch (e) {
+          console.error(`写入 JSON 摘要失败: ${e.message}`);
+        }
+      }
+
+      logger.close();
+      process.exit(FAIL.INVALID_DATA_DIR);
+    }
+  }
 
   if (args.history) {
     const n = args.history;
@@ -671,7 +776,23 @@ async function main() {
         const cmd = data.command || '';
         const port = data.rounds && data.rounds[0] ? data.rounds[0].port : (data.port || '-');
         const dur = data.durationMs ? `${(data.durationMs / 1000).toFixed(1)}s` : 'n/a';
-        console.log(`  ${ts}  ${resultStr}  端口=${port}  时长=${dur}  命令=${cmd}`);
+        const installStr = data.install
+          ? (data.install.executed ? '安装执行' : (data.install.skipped ? '安装跳过' : '安装未到'))
+          : '-';
+        console.log(`  ${ts}  ${resultStr}  端口=${port}  时长=${dur}  安装=${installStr}`);
+        console.log(`    命令: ${cmd}`);
+        if (data.rounds) {
+          for (const r of data.rounds) {
+            const ri = r.ok ? '✅' : '❌';
+            const smokeStr = r.smoke ? `${r.smoke.passed}/${r.smoke.passed + r.smoke.failed}` : '-';
+            console.log(`    ${ri} ${r.label} PID=${r.pid || '-'} 数据=${r.dataDir || '-'} 烟雾=${smokeStr} 结果=${r.ok ? 'PASS' : 'FAIL:' + failCodeToString(r.failCode)}`);
+          }
+        }
+        if (data.failReason) {
+          console.log(`    失败原因: ${data.failReason}`);
+        }
+        console.log(`    日志: ${data.logPath || '-'}  记录: ${data.recordPath || '-'}`);
+        console.log('');
       } catch (_) {
         console.log(`  [无法读取: ${f}]`);
       }
@@ -680,9 +801,8 @@ async function main() {
     process.exit(0);
   }
 
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const logPath = path.join(LOG_DIR, `smoke_${stamp}.log`);
   const logger = new Logger(logPath);
+  const activeChildren = [];
 
   logger.info(`门诊候补号源系统 - 零启动验收入口`);
   logger.info(`日志文件: ${logPath}`);
@@ -699,63 +819,17 @@ async function main() {
     restartPort: args.restartPort,
   };
 
-  const round1DataDir = args.dataDir
-    ? (path.isAbsolute(args.dataDir) ? args.dataDir : path.resolve(SERVER_ROOT, args.dataDir))
-    : path.join(SERVER_ROOT, `tmp_smoke_${process.pid}_1`);
-  finalSummary.tempDirs.push(round1DataDir);
+  try {
+    const round1DataDir = args.dataDir
+      ? (path.isAbsolute(args.dataDir) ? args.dataDir : path.resolve(SERVER_ROOT, args.dataDir))
+      : path.join(SERVER_ROOT, `tmp_smoke_${process.pid}_1`);
+    finalSummary.tempDirs.push(round1DataDir);
 
-  const round1Opts = {
-    port: args.port,
-    dataDir: round1DataDir,
-    keepData: args.keepData,
-    skipInstall: args.skipInstall,
-    skipSmoke: args.skipSmoke,
-    strictPortCheck: args.strictPortCheck,
-    installTimeoutMs: DEFAULT_INSTALL_TIMEOUT_MS,
-    seedTimeoutMs: DEFAULT_SEED_TIMEOUT_MS,
-    healthTimeoutMs: DEFAULT_HEALTH_TIMEOUT_MS,
-  };
-
-  const r1 = await runOneRound(round1Opts, logger, '一');
-  finalSummary.rounds.push({
-    label: '第一轮（首次启动）',
-    port: r1.port,
-    dataDir: r1.dataDir,
-    ok: r1.ok,
-    failCode: r1.failCode,
-    failReason: r1.failReason,
-    duration: r1.endedAt ? r1.endedAt - r1.startedAt : null,
-    steps: r1.steps,
-  });
-
-  // 清理第一轮进程
-  if (r1.child) {
-    await killProcessTree(r1.child, logger, '第一轮进程清理');
-    r1.child = null;
-  }
-
-  if (!r1.ok) {
-    finalSummary.finalResult = 'fail_round1';
-    finalSummary.failCode = r1.failCode;
-    finalSummary.failReason = `第一轮失败: ${r1.failReason}`;
-  } else if (!args.noRestart) {
-    // ========== 跨重启第二轮 ==========
-    logger.step('跨重启二次验证启动');
-    const round2DataDir = args.dataDir && !args.keepData
-      ? (path.isAbsolute(args.dataDir + '_2')
-        ? args.dataDir + '_2'
-        : path.resolve(SERVER_ROOT, args.dataDir + '_2'))
-      : path.join(SERVER_ROOT, `tmp_smoke_${process.pid}_2`);
-    finalSummary.tempDirs.push(round2DataDir);
-
-    // 如果用户没指定 --data-dir 并且没指定 --keep-data，第二轮强制用不同端口和独立数据目录
-    const round2Port = args.port === args.restartPort ? args.restartPort + 1 : args.restartPort;
-
-    const round2Opts = {
-      port: round2Port,
-      dataDir: round2DataDir,
+    const round1Opts = {
+      port: args.port,
+      dataDir: round1DataDir,
       keepData: args.keepData,
-      skipInstall: true,
+      skipInstall: args.skipInstall,
       skipSmoke: args.skipSmoke,
       strictPortCheck: args.strictPortCheck,
       installTimeoutMs: DEFAULT_INSTALL_TIMEOUT_MS,
@@ -763,51 +837,108 @@ async function main() {
       healthTimeoutMs: DEFAULT_HEALTH_TIMEOUT_MS,
     };
 
-    const r2 = await runOneRound(round2Opts, logger, '二');
+    const r1 = await runOneRound(round1Opts, logger, '一');
+    if (r1.child) activeChildren.push(r1.child);
     finalSummary.rounds.push({
-      label: '第二轮（跨重启验证）',
-      port: r2.port,
-      dataDir: r2.dataDir,
-      ok: r2.ok,
-      failCode: r2.failCode,
-      failReason: r2.failReason,
-      duration: r2.endedAt ? r2.endedAt - r2.startedAt : null,
-      steps: r2.steps,
+      label: '第一轮（首次启动）',
+      port: r1.port,
+      dataDir: r1.dataDir,
+      ok: r1.ok,
+      failCode: r1.failCode,
+      failReason: r1.failReason,
+      duration: r1.endedAt ? r1.endedAt - r1.startedAt : null,
+      steps: r1.steps,
     });
 
-    if (r2.child) {
-      await killProcessTree(r2.child, logger, '第二轮进程清理');
+    if (r1.child) {
+      await killProcessTree(r1.child, logger, '第一轮进程清理');
+      const idx = activeChildren.indexOf(r1.child);
+      if (idx >= 0) activeChildren.splice(idx, 1);
+      r1.child = null;
     }
 
-    if (!r2.ok) {
-      finalSummary.finalResult = 'fail_round2';
-      finalSummary.failCode = FAIL.RESTART;
-      finalSummary.failReason = `第二轮跨重启验证失败: ${r2.failReason}`;
+    if (!r1.ok) {
+      finalSummary.finalResult = 'fail_round1';
+      finalSummary.failCode = r1.failCode;
+      finalSummary.failReason = `第一轮失败: ${r1.failReason}`;
+    } else if (!args.noRestart) {
+      logger.step('跨重启二次验证启动');
+      const round2DataDir = args.dataDir && !args.keepData
+        ? (path.isAbsolute(args.dataDir + '_2')
+          ? args.dataDir + '_2'
+          : path.resolve(SERVER_ROOT, args.dataDir + '_2'))
+        : path.join(SERVER_ROOT, `tmp_smoke_${process.pid}_2`);
+      finalSummary.tempDirs.push(round2DataDir);
+
+      const round2Port = args.port === args.restartPort ? args.restartPort + 1 : args.restartPort;
+
+      const round2Opts = {
+        port: round2Port,
+        dataDir: round2DataDir,
+        keepData: args.keepData,
+        skipInstall: true,
+        skipSmoke: args.skipSmoke,
+        strictPortCheck: args.strictPortCheck,
+        installTimeoutMs: DEFAULT_INSTALL_TIMEOUT_MS,
+        seedTimeoutMs: DEFAULT_SEED_TIMEOUT_MS,
+        healthTimeoutMs: DEFAULT_HEALTH_TIMEOUT_MS,
+      };
+
+      const r2 = await runOneRound(round2Opts, logger, '二');
+      if (r2.child) activeChildren.push(r2.child);
+      finalSummary.rounds.push({
+        label: '第二轮（跨重启验证）',
+        port: r2.port,
+        dataDir: r2.dataDir,
+        ok: r2.ok,
+        failCode: r2.failCode,
+        failReason: r2.failReason,
+        duration: r2.endedAt ? r2.endedAt - r2.startedAt : null,
+        steps: r2.steps,
+      });
+
+      if (r2.child) {
+        await killProcessTree(r2.child, logger, '第二轮进程清理');
+        const idx = activeChildren.indexOf(r2.child);
+        if (idx >= 0) activeChildren.splice(idx, 1);
+      }
+
+      if (!r2.ok) {
+        finalSummary.finalResult = 'fail_round2';
+        finalSummary.failCode = FAIL.RESTART;
+        finalSummary.failReason = `第二轮跨重启验证失败: ${r2.failReason}`;
+      } else {
+        finalSummary.finalResult = 'pass';
+        logger.step('两轮全部通过 ✓✓');
+      }
     } else {
-      finalSummary.finalResult = 'pass';
-      logger.step('两轮全部通过 ✓✓');
+      finalSummary.finalResult = 'pass_round1_only';
     }
-  } else {
-    finalSummary.finalResult = 'pass_round1_only';
-  }
-
-  // ========== 清理临时目录 ==========
-  if (!args.keepData) {
-    for (const d of finalSummary.tempDirs) {
-      if (dirExists(d)) {
-        try {
-          rimraf(d);
-          logger.info(`已清理临时数据目录: ${d}`);
-        } catch (e) {
-          logger.warn(`清理临时目录失败: ${d}, 原因: ${e.message}`);
-        }
+  } finally {
+    for (let i = activeChildren.length - 1; i >= 0; i--) {
+      const child = activeChildren[i];
+      if (child && !child.killed) {
+        await killProcessTree(child, logger, '残留进程强制清理');
       }
     }
-  } else {
-    logger.info(`--keep-data 指定，保留数据目录: ${finalSummary.tempDirs.join(', ')}`);
+    activeChildren.length = 0;
+
+    if (!args.keepData) {
+      for (const d of finalSummary.tempDirs) {
+        if (dirExists(d)) {
+          try {
+            rimraf(d);
+            logger.info(`已清理临时数据目录: ${d}`);
+          } catch (e) {
+            logger.warn(`清理临时目录失败: ${d}, 原因: ${e.message}`);
+          }
+        }
+      }
+    } else {
+      logger.info(`--keep-data 指定，保留数据目录: ${finalSummary.tempDirs.join(', ')}`);
+    }
   }
 
-  // ========== 最终摘要 ==========
   finalSummary.endedAt = Date.now();
   logger.step('最终摘要');
   logger.info(`结果: ${finalSummary.finalResult === 'pass' || finalSummary.finalResult === 'pass_round1_only' ? '✅ 全部通过' : '❌ 失败'}`);
@@ -822,15 +953,20 @@ async function main() {
     logger.error(`失败原因: ${finalSummary.failReason}`);
   }
 
-  // ========== 写入运行记录 ==========
-  const recordPath = writeRunRecord(stamp, logPath, finalSummary);
-  if (recordPath) {
-    logger.info(`运行记录: ${recordPath}`);
+  const recordPathResult = writeRunRecord(stamp, logPath, finalSummary);
+  if (recordPathResult) {
+    finalSummary.recordPath = recordPathResult;
+    logger.info(`运行记录: ${recordPathResult}`);
   }
 
   if (args.json) {
     try {
       const jsonPath = path.isAbsolute(args.json) ? args.json : path.resolve(SERVER_ROOT, args.json);
+      const jsonDir = path.dirname(jsonPath);
+      if (!fs.existsSync(jsonDir)) {
+        fs.mkdirSync(jsonDir, { recursive: true });
+        logger.info(`已创建 JSON 输出父目录: ${jsonDir}`);
+      }
       fs.writeFileSync(jsonPath, JSON.stringify(finalSummary, null, 2));
       logger.info(`摘要 JSON 已写入: ${jsonPath}`);
     } catch (e) {

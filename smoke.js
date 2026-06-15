@@ -14,7 +14,7 @@ const RECORDS_DIR = path.join(SERVER_ROOT, 'smoke_records');
 const FAIL_CODE_MAP = {
   1: 'install_fail', 2: 'port_occupied', 3: 'seed_fail',
   4: 'server_not_up', 5: 'health_timeout', 6: 'smoke_fail',
-  7: 'restart_fail', 99: 'unknown',
+  7: 'restart_fail', 8: 'invalid_data_dir', 99: 'unknown',
 };
 
 function failCodeToString(code) {
@@ -81,12 +81,13 @@ function printRootHelp() {
 失败代码 (exitCode):
   0  全部通过
   1  install_fail       依赖安装失败
-  2  port_occupied      端口被占用
+  2  port_occupied      端口被占用 (检测到机器已有服务监听)
   3  seed_fail          seed 初始化失败
   4  server_not_up      后端未在超时时间内启动成功
   5  health_timeout     健康检查超时
   6  smoke_fail         API 冒烟测试失败
   7  restart_fail       跨重启二次验证失败
+  8  invalid_data_dir   data-dir 参数非法 (指向文件而非目录)
   99 unknown            未知异常
 
 提示:
