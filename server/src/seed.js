@@ -25,6 +25,19 @@ const bcrypt = require('bcryptjs');
   doctors.forEach(d => insertDoctor.run(...d));
   console.log('医生数据初始化完成');
 
+  const insertRoom = db.prepare(`INSERT OR IGNORE INTO rooms (name, location, status) VALUES (?, ?, ?)`);
+  const rooms = [
+    ['诊室101', '门诊楼1层东侧', 'active'],
+    ['诊室102', '门诊楼1层西侧', 'active'],
+    ['诊室201', '门诊楼2层东侧', 'active'],
+    ['诊室202', '门诊楼2层西侧', 'active'],
+    ['诊室301', '门诊楼3层东侧', 'active']
+  ];
+  rooms.forEach(r => insertRoom.run(...r));
+  console.log('诊室数据初始化完成');
+
+  const doctorRoomMap = { 1: 1, 2: 2, 3: 3, 4: 4, 5: 5 };
+
   const today = new Date();
   const tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
@@ -32,8 +45,8 @@ const bcrypt = require('bcryptjs');
   const fmtDate = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 
   const insertSlot = db.prepare(`
-    INSERT OR IGNORE INTO slots (doctor_id, date, period, time_start, time_end, capacity, available_count, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT OR IGNORE INTO slots (doctor_id, room_id, date, period, time_start, time_end, capacity, available_count, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const schedules = [
@@ -48,8 +61,18 @@ const bcrypt = require('bcryptjs');
   ];
 
   schedules.forEach(s => {
-    insertSlot.run(s.doctor, s.date, s.period, s.start, s.end, s.cap, s.avail, s.avail > 0 ? 'active' : 'full');
+    insertSlot.run(s.doctor, doctorRoomMap[s.doctor], s.date, s.period, s.start, s.end, s.cap, s.avail, s.avail > 0 ? 'active' : 'full');
   });
+  // 迁移回填：已存在但没有 room_id 的号源按医生-诊室映射补上
+  try {
+    const slotsWithoutRoom = db.prepare('SELECT id, doctor_id FROM slots WHERE room_id IS NULL').all();
+    const updateSlotRoom = db.prepare('UPDATE slots SET room_id = ? WHERE id = ?');
+    slotsWithoutRoom.forEach(s => {
+      const roomId = doctorRoomMap[s.doctor_id];
+      if (roomId) updateSlotRoom.run(roomId, s.id);
+    });
+    if (slotsWithoutRoom.length > 0) console.log(`已回填 ${slotsWithoutRoom.length} 个号源的诊室信息`);
+  } catch (_) {}
   console.log('号源数据初始化完成');
 
   const insertPatient = db.prepare(`INSERT OR IGNORE INTO patients (name, phone, id_card) VALUES (?, ?, ?)`);

@@ -8,6 +8,7 @@ import Waitlist from './pages/Waitlist.jsx'
 import Notifications, { Patients, Appointments, NoShowRecords } from './pages/Notifications.jsx'
 import Config, { AuditLogs, TimeControl } from './pages/Config.jsx'
 import Suspension from './pages/Suspension.jsx'
+import RoomCalendar from './pages/RoomCalendar.jsx'
 
 const getUser = () => {
   try { return JSON.parse(localStorage.getItem('auth_user') || 'null') } catch { return null }
@@ -34,6 +35,7 @@ function App() {
   const menuItems = [
     { to: '/', label: '仪表盘', icon: '📊', roles: ['admin', 'clerk'] },
     { to: '/suspension', label: '停诊改期', icon: '🚫', roles: ['admin', 'clerk'] },
+    { to: '/rooms', label: '诊室日历', icon: '🚪', roles: ['admin', 'clerk'] },
     { to: '/slots', label: '号源管理', icon: '📅', roles: ['admin', 'clerk'] },
     { to: '/waitlist', label: '候补队列', icon: '📋', roles: ['admin', 'clerk'] },
     { to: '/appointments', label: '预约管理', icon: '🩺', roles: ['admin', 'clerk'] },

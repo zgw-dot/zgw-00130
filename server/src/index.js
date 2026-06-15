@@ -14,6 +14,8 @@ const wl = require('./waitlist');
 const suspension = require('./suspension');
 const suspensionDao = require('./suspensionDao');
 const suspensionCsv = require('./suspensionCsv');
+const roomService = require('./roomService');
+const roomDao = require('./roomDao');
 
 const PORT = process.env.PORT || 3001;
 const app = express();
@@ -640,11 +642,75 @@ app.put('/api/suspension/config', authMiddleware, requireAdmin, (req, res, next)
   try {
     const { key, value } = req.body || {};
     if (!key || value === undefined) return res.status(400).json({ error: '请提供配置键和值' });
-    if (!['suspension_waitlist_strategy', 'suspension_auto_notify'].includes(key)) {
+    if (!['suspension_waitlist_strategy', 'suspension_auto_notify', 'room_lock_strategy', 'room_lock_allow_clerk_export'].includes(key)) {
       return res.status(400).json({ error: '不支持的配置键' });
     }
     const result = suspension.updateConfig(req, key, value);
     res.json(result);
+  } catch (e) { next(e); }
+});
+
+app.get('/api/rooms', authMiddleware, (req, res, next) => {
+  try {
+    const { status } = req.query;
+    const rooms = roomService.listRooms(status || null);
+    res.json({ list: rooms });
+  } catch (e) { next(e); }
+});
+
+app.get('/api/rooms/:id', authMiddleware, (req, res, next) => {
+  try {
+    const room = roomService.getRoom(parseInt(req.params.id));
+    if (!room) return res.status(404).json({ error: '诊室不存在' });
+    res.json({ room });
+  } catch (e) { next(e); }
+});
+
+app.post('/api/rooms', authMiddleware, requireAdmin, (req, res, next) => {
+  try {
+    const { name, location } = req.body || {};
+    if (!name || !name.trim()) return res.status(400).json({ error: '诊室名称必填' });
+    const room = roomService.createRoom(req, name.trim(), location ? location.trim() : null);
+    res.json({ room });
+  } catch (e) { next(e); }
+});
+
+app.put('/api/rooms/:id', authMiddleware, requireAdmin, (req, res, next) => {
+  try {
+    const room = roomService.updateRoom(req, parseInt(req.params.id), req.body || {});
+    if (!room) return res.status(404).json({ error: '诊室不存在' });
+    res.json({ room });
+  } catch (e) { next(e); }
+});
+
+app.delete('/api/rooms/:id', authMiddleware, requireAdmin, (req, res, next) => {
+  try {
+    roomService.deleteRoom(req, parseInt(req.params.id));
+    res.json({ success: true });
+  } catch (e) { next(e); }
+});
+
+app.get('/api/rooms/calendar/view', authMiddleware, (req, res, next) => {
+  try {
+    const { startDate, endDate, roomId, doctorId } = req.query;
+    if (!startDate || !endDate) {
+      return res.status(400).json({ error: '请指定 startDate 和 endDate' });
+    }
+    const calendar = roomService.getCalendar(
+      startDate, endDate,
+      roomId ? parseInt(roomId) : null,
+      doctorId ? parseInt(doctorId) : null
+    );
+    res.json(calendar);
+  } catch (e) { next(e); }
+});
+
+app.get('/api/rooms/:id/preview-lock', authMiddleware, requireAdmin, (req, res, next) => {
+  try {
+    const { date, period } = req.query;
+    if (!date) return res.status(400).json({ error: '请指定日期' });
+    const preview = roomService.previewRoomLock(parseInt(req.params.id), date, period || null);
+    res.json(preview);
   } catch (e) { next(e); }
 });
 

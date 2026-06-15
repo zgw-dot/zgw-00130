@@ -1,5 +1,6 @@
 const db = require('./db');
 const dao = require('./suspensionDao');
+const roomDao = require('./roomDao');
 const { logAudit } = require('./audit');
 
 function generateAppointmentNotification(appt, batch, reason) {
@@ -67,6 +68,10 @@ const suspensionService = {
       } else if (item.item_type === 'doctor') {
         slots = dao.findSlotsByCriteria(null, parseInt(item.item_value), null);
       } else if (item.item_type === 'room') {
+        const roomId = parseInt(item.item_value, 10);
+        if (isNaN(roomId) || !roomDao.getById(roomId)) {
+          throw new Error(`诊室不存在: ${item.item_value}`);
+        }
         slots = dao.findSlotsByCriteria(null, null, item.item_value);
       }
 

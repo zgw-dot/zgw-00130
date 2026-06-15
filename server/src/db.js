@@ -187,9 +187,18 @@ proxy.initTables = () => {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS rooms (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT UNIQUE NOT NULL,
+      location TEXT,
+      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'inactive')),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE TABLE IF NOT EXISTS slots (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       doctor_id INTEGER NOT NULL,
+      room_id INTEGER,
       date TEXT NOT NULL,
       period TEXT NOT NULL CHECK(period IN ('morning', 'afternoon', 'evening')),
       time_start TEXT NOT NULL,
@@ -401,9 +410,23 @@ proxy.initTables = () => {
     ['position_display_mode', 'absolute'],
     ['export_include_contact_info', 'true'],
     ['suspension_waitlist_strategy', 'auto_postpone'],
-    ['suspension_auto_notify', 'true']
+    ['suspension_auto_notify', 'true'],
+    ['room_lock_strategy', 'block_new_only'],
+    ['room_lock_allow_clerk_export', 'true']
   ];
   defaults.forEach(([k, v]) => insertConfig.run(k, v));
+
+  // 迁移：旧数据库 slots 表没有 room_id 列时补上
+  try {
+    const cols = db.prepare("PRAGMA table_info(slots)").all();
+    const hasRoomId = cols.some(c => c.name === 'room_id');
+    if (!hasRoomId) {
+      db.exec('ALTER TABLE slots ADD COLUMN room_id INTEGER');
+      console.log('[DB] 迁移：slots 表已添加 room_id 列');
+    }
+  } catch (e) {
+    // sql.js 某些版本 PRAGMA 可能不返回结果，忽略
+  }
 
   const initTimeOverride = db.prepare(`
     INSERT OR IGNORE INTO time_overrides (id, mode, current_time, speed_multiplier) VALUES (1, 'real', NULL, 1.0)

@@ -54,4 +54,14 @@ export const suspensionApi = {
   getSlots: (params) => api.get('/slots', { params })
 }
 
+export const roomApi = {
+  list: () => api.get('/rooms'),
+  get: (id) => api.get(`/rooms/${id}`),
+  create: (data) => api.post('/rooms', data),
+  update: (id, data) => api.put(`/rooms/${id}`, data),
+  remove: (id) => api.delete(`/rooms/${id}`),
+  calendar: (params) => api.get('/rooms/calendar/view', { params }),
+  previewLock: (id, params) => api.get(`/rooms/${id}/preview-lock`, { params })
+}
+
 export default api
