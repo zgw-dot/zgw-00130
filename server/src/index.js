@@ -1032,7 +1032,7 @@ app.get('/api/precheck/csv/export', authMiddleware, (req, res, next) => {
 app.get('/api/precheck/csv/template', authMiddleware, (req, res) => {
   const csv = precheckCsv.generateTemplate();
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition', 'attachment; filename="术前核验导入模板.csv"');
+  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent('术前核验导入模板.csv')}"`);
   res.send(csv);
 });
 
@@ -1053,7 +1053,7 @@ app.get('/api/precheck/duplicate-check', authMiddleware, (req, res, next) => {
 app.post('/api/precheck/csv/import', authMiddleware, (req, res, next) => {
   try {
     const { content } = req.body || {};
-    if (!content) return res.status(400).json({ error: '请提供 CSV 内容' });
+    if (content === undefined || content === null) return res.status(400).json({ error: '请提供 CSV 内容' });
     const result = precheckCsv.importFromCsv(req, content);
     res.json(result);
   } catch (e) { next(e); }
@@ -1062,7 +1062,7 @@ app.post('/api/precheck/csv/import', authMiddleware, (req, res, next) => {
 app.post('/api/precheck/csv/parse', authMiddleware, (req, res, next) => {
   try {
     const { content } = req.body || {};
-    if (!content) return res.status(400).json({ error: '请提供 CSV 内容' });
+    if (content === undefined || content === null) return res.status(400).json({ error: '请提供 CSV 内容' });
     const result = precheckCsv.parseImportList(content);
     res.json(result);
   } catch (e) { next(e); }

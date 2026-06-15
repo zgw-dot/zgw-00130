@@ -116,7 +116,9 @@ const csvHandlers = {
     const parsed = csvHandlers.parseImportList(content);
     if (parsed.valid.length === 0) {
       return {
-        ...parsed,
+        parsed: parsed.parsed,
+        validCount: 0,
+        invalid: parsed.invalid,
         imported: 0,
         skipped: 0,
         conflicts: [],
@@ -136,6 +138,18 @@ const csvHandlers = {
       row: v.raw,
       error: `预约ID ${v.appointmentId} 不存在`
     }));
+
+    if (appointments.length === 0) {
+      return {
+        parsed: parsed.parsed,
+        validCount: 0,
+        invalid: [...parsed.invalid, ...invalidExtra],
+        imported: 0,
+        skipped: 0,
+        conflicts: [],
+        message: 'CSV 中没有有效的预约'
+      };
+    }
 
     const result = precheckService.importAppointments(req, appointments);
     result.parsed = parsed.parsed;
