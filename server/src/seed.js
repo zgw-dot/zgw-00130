@@ -75,12 +75,40 @@ const bcrypt = require('bcryptjs');
     [2, 3, 'booked'],
     [3, 4, 'booked'],
     [4, 5, 'booked'],
+    [4, 1, 'confirmed'],
+    [4, 2, 'confirmed'],
     [7, 6, 'booked'],
     [7, 7, 'booked'],
-    [7, 8, 'confirmed']
+    [7, 8, 'confirmed'],
+    [5, 3, 'confirmed'],
+    [5, 4, 'confirmed'],
+    [6, 5, 'confirmed'],
+    [6, 6, 'confirmed'],
+    [8, 7, 'confirmed'],
+    [8, 8, 'confirmed']
   ];
   appointments.forEach(a => insertAppointment.run(...a));
   console.log('预约数据初始化完成');
+
+  const insertWaitlist = db.prepare(`
+    INSERT OR IGNORE INTO waitlist (slot_id, patient_id, position, status) VALUES (?, ?, ?, ?)
+  `);
+  const waitlistEntries = [
+    [1, 5, 1, 'waiting'],
+    [1, 6, 2, 'waiting'],
+    [2, 7, 1, 'waiting'],
+    [2, 8, 2, 'waiting'],
+    [4, 3, 1, 'waiting'],
+    [4, 4, 2, 'waiting'],
+    [7, 1, 1, 'waiting'],
+    [7, 2, 2, 'waiting'],
+    [5, 6, 1, 'waiting'],
+    [5, 7, 2, 'waiting'],
+    [6, 7, 1, 'waiting'],
+    [6, 8, 2, 'waiting']
+  ];
+  waitlistEntries.forEach(w => insertWaitlist.run(...w));
+  console.log('候补数据初始化完成');
 
   db.forceSave();
   console.log('种子数据全部初始化完成！数据库已保存。');

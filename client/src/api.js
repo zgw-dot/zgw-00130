@@ -34,4 +34,24 @@ export const toast = (msg, type = 'info') => {
   setTimeout(() => el.remove(), 2800)
 }
 
+export const suspensionApi = {
+  listBatches: (status) => api.get('/suspension/batches', { params: { status } }),
+  createBatch: (data) => api.post('/suspension/batches', data),
+  getBatch: (id) => api.get(`/suspension/batches/${id}`),
+  updateItems: (id, items) => api.post(`/suspension/batches/${id}/items`, { items }),
+  preview: (id) => api.get(`/suspension/batches/${id}/preview`),
+  saveDraft: (id) => api.post(`/suspension/batches/${id}/save-draft`),
+  execute: (id) => api.post(`/suspension/batches/${id}/execute`),
+  revoke: (id, reason) => api.post(`/suspension/batches/${id}/revoke`, { reason }),
+  importCsv: (content) => api.post('/suspension/csv/import', { content }),
+  exportAffected: (batchId) => api.get(`/suspension/csv/export/${batchId}/affected`, { responseType: 'blob' }),
+  exportResults: (batchId) => api.get(`/suspension/csv/export/${batchId}/results`, { responseType: 'blob' }),
+  exportUnprocessed: (batchId) => api.get(`/suspension/csv/export/${batchId}/unprocessed`, { responseType: 'blob' }),
+  listExports: (batchId) => api.get('/suspension/exports', { params: { batchId } }),
+  getConfig: () => api.get('/suspension/config'),
+  updateConfig: (key, value) => api.put('/suspension/config', { key, value }),
+  getDoctors: () => api.get('/doctors'),
+  getSlots: (params) => api.get('/slots', { params })
+}
+
 export default api

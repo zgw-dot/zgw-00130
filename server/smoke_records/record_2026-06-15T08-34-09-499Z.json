@@ -1,0 +1,135 @@
+{
+  "id": "record_2026-06-15T08-34-09-499Z",
+  "timestamp": 1781512449510,
+  "timestampISO": "2026-06-15T08:34:09.510Z",
+  "command": "node smoke_test.js --no-restart --port 3191 --data-dir C:\\Users\\13623\\AppData\\Local\\Temp\\zgw-00130-smoke-review --skip-install --keep-data --json C:\\Users\\13623\\AppData\\Local\\Temp\\zgw-00130-smoke-review.json",
+  "argv": [
+    "--no-restart",
+    "--port",
+    "3191",
+    "--data-dir",
+    "C:\\Users\\13623\\AppData\\Local\\Temp\\zgw-00130-smoke-review",
+    "--skip-install",
+    "--keep-data",
+    "--json",
+    "C:\\Users\\13623\\AppData\\Local\\Temp\\zgw-00130-smoke-review.json"
+  ],
+  "finalResult": "pass_round1_only",
+  "failCode": 0,
+  "failReason": null,
+  "exitCode": 0,
+  "durationMs": 2447,
+  "port": 3191,
+  "restartPort": 3002,
+  "dataDirs": [
+    "C:\\Users\\13623\\AppData\\Local\\Temp\\zgw-00130-smoke-review"
+  ],
+  "logPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_logs\\smoke_2026-06-15T08-34-09-499Z.log",
+  "recordPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_records\\record_2026-06-15T08-34-09-499Z.json",
+  "rounds": [
+    {
+      "label": "第一轮（首次启动）",
+      "port": 3191,
+      "dataDir": "C:\\Users\\13623\\AppData\\Local\\Temp\\zgw-00130-smoke-review",
+      "ok": true,
+      "failCode": 0,
+      "failReason": null,
+      "duration": 2425,
+      "steps": {
+        "port_check": {
+          "ok": true,
+          "duration": 0
+        },
+        "install": {
+          "ok": true,
+          "skipped": true
+        },
+        "seed": {
+          "ok": true
+        },
+        "server_start": {
+          "ok": true,
+          "pid": 54776
+        },
+        "smoke": {
+          "passed": 23,
+          "failed": 0,
+          "errors": []
+        }
+      },
+      "pid": 54776,
+      "smoke": {
+        "passed": 23,
+        "failed": 0,
+        "errors": []
+      },
+      "durationMs": 2425,
+      "healthCheck": {
+        "ok": true
+      },
+      "seed": {
+        "ok": true
+      }
+    }
+  ],
+  "tempDirs": [
+    "C:\\Users\\13623\\AppData\\Local\\Temp\\zgw-00130-smoke-review"
+  ],
+  "steps": null,
+  "install": {
+    "ok": true,
+    "skipped": true
+  },
+  "paramsTrace": {
+    "port": 3191,
+    "restartPort": 3002,
+    "dataDir": [
+      "C:\\Users\\13623\\AppData\\Local\\Temp\\zgw-00130-smoke-review"
+    ],
+    "skipInstall": true,
+    "noRestart": true,
+    "keepData": true,
+    "skipSmoke": false,
+    "roundCount": 1,
+    "roundResults": [
+      {
+        "label": "第一轮（首次启动）",
+        "ok": true,
+        "port": 3191,
+        "dataDir": "C:\\Users\\13623\\AppData\\Local\\Temp\\zgw-00130-smoke-review",
+        "failCode": 0,
+        "failReason": null
+      }
+    ]
+  },
+  "jsonPath": "C:\\Users\\13623\\AppData\\Local\\Temp\\zgw-00130-smoke-review.json",
+  "artifacts": {
+    "log": {
+      "label": "日志文件",
+      "expectedPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_logs\\smoke_2026-06-15T08-34-09-499Z.log",
+      "actualPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_logs\\smoke_2026-06-15T08-34-09-499Z.log",
+      "exists": true,
+      "sizeBytes": 4591,
+      "reason": null,
+      "stage": "final_summary"
+    },
+    "record": {
+      "label": "运行记录",
+      "expectedPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_records\\record_2026-06-15T08-34-09-499Z.json",
+      "actualPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_records\\record_2026-06-15T08-34-09-499Z.json",
+      "exists": true,
+      "sizeBytes": 2751,
+      "reason": null,
+      "stage": "final_summary"
+    },
+    "json": {
+      "label": "JSON摘要",
+      "expectedPath": "C:\\Users\\13623\\AppData\\Local\\Temp\\zgw-00130-smoke-review.json",
+      "actualPath": "C:\\Users\\13623\\AppData\\Local\\Temp\\zgw-00130-smoke-review.json",
+      "exists": true,
+      "sizeBytes": 2836,
+      "reason": null,
+      "stage": "final_summary"
+    }
+  }
+}

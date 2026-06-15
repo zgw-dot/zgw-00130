@@ -286,6 +286,107 @@ proxy.initTables = () => {
       speed_multiplier REAL DEFAULT 1.0,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS suspension_batches (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      batch_no TEXT UNIQUE NOT NULL,
+      title TEXT NOT NULL,
+      reason TEXT,
+      status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft', 'pending', 'executing', 'completed', 'revoked')),
+      created_by INTEGER NOT NULL,
+      executed_by INTEGER,
+      revoked_by INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      executed_at DATETIME,
+      revoked_at DATETIME,
+      remarks TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS suspension_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      batch_id INTEGER NOT NULL,
+      item_type TEXT NOT NULL CHECK(item_type IN ('date', 'doctor', 'room')),
+      item_value TEXT NOT NULL,
+      description TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS suspension_affected_slots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      batch_id INTEGER NOT NULL,
+      slot_id INTEGER NOT NULL,
+      locked BOOLEAN NOT NULL DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(batch_id, slot_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS suspension_affected_appointments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      batch_id INTEGER NOT NULL,
+      slot_id INTEGER NOT NULL,
+      appointment_id INTEGER NOT NULL,
+      patient_id INTEGER NOT NULL,
+      old_status TEXT NOT NULL,
+      new_status TEXT,
+      processed BOOLEAN NOT NULL DEFAULT 0,
+      process_result TEXT,
+      process_note TEXT,
+      notification_content TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      processed_at DATETIME
+    );
+
+    CREATE TABLE IF NOT EXISTS suspension_affected_waitlist (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      batch_id INTEGER NOT NULL,
+      slot_id INTEGER NOT NULL,
+      waitlist_id INTEGER NOT NULL,
+      patient_id INTEGER NOT NULL,
+      old_status TEXT NOT NULL,
+      new_status TEXT,
+      target_slot_id INTEGER,
+      processed BOOLEAN NOT NULL DEFAULT 0,
+      process_result TEXT,
+      process_note TEXT,
+      notification_content TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      processed_at DATETIME
+    );
+
+    CREATE TABLE IF NOT EXISTS suspension_exports (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      batch_id INTEGER,
+      export_type TEXT NOT NULL CHECK(export_type IN ('affected_patients', 'process_results', 'unprocessed')),
+      file_path TEXT NOT NULL,
+      file_name TEXT NOT NULL,
+      record_count INTEGER,
+      created_by INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS suspension_revocations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      batch_id INTEGER NOT NULL,
+      reason TEXT,
+      restored_appointments INTEGER DEFAULT 0,
+      restored_waitlist INTEGER DEFAULT 0,
+      restored_slots INTEGER DEFAULT 0,
+      created_by INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS suspension_notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      batch_id INTEGER NOT NULL,
+      patient_id INTEGER NOT NULL,
+      appointment_id INTEGER,
+      waitlist_id INTEGER,
+      notification_type TEXT NOT NULL CHECK(notification_type IN ('appointment_cancelled', 'waitlist_moved', 'manual_review_required', 'auto_postponed')),
+      content TEXT NOT NULL,
+      sent BOOLEAN NOT NULL DEFAULT 0,
+      sent_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   const insertConfig = db.prepare(`INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)`);
@@ -298,7 +399,9 @@ proxy.initTables = () => {
     ['manual_trigger_enabled', 'true'],
     ['clerk_can_modify_global_config', 'false'],
     ['position_display_mode', 'absolute'],
-    ['export_include_contact_info', 'true']
+    ['export_include_contact_info', 'true'],
+    ['suspension_waitlist_strategy', 'auto_postpone'],
+    ['suspension_auto_notify', 'true']
   ];
   defaults.forEach(([k, v]) => insertConfig.run(k, v));
 

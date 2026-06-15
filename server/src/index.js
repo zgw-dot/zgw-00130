@@ -11,6 +11,9 @@ const { JWT_SECRET, authMiddleware, requireAdmin, requireConfigPermission, getCl
 const { logAudit } = require('./audit');
 const timeCtrl = require('./time');
 const wl = require('./waitlist');
+const suspension = require('./suspension');
+const suspensionDao = require('./suspensionDao');
+const suspensionCsv = require('./suspensionCsv');
 
 const PORT = process.env.PORT || 3001;
 const app = express();
@@ -31,8 +34,9 @@ const tryJson = (s) => {
 };
 
 const errorHandler = (err, req, res, next) => {
-  console.error(err);
-  res.status(400).json({ error: err.message || '服务器内部错误' });
+  console.error('[ERROR]', err?.message || err);
+  if (err?.stack) console.error(err.stack);
+  res.status(400).json({ error: err?.message || String(err) || '服务器内部错误' });
 };
 
 app.post('/api/auth/login', (req, res, next) => {
@@ -516,6 +520,157 @@ app.get('/api/export/waitlist/:slotId', authMiddleware, (req, res) => {
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="waitlist_slot_${slot.id}_${slot.date}.csv"`);
   res.send(csv);
+});
+
+app.get('/api/suspension/batches', authMiddleware, (req, res, next) => {
+  try {
+    const { status } = req.query;
+    const batches = suspensionDao.listBatches(status || null);
+    res.json({ batches });
+  } catch (e) { next(e); }
+});
+
+app.post('/api/suspension/batches', authMiddleware, (req, res, next) => {
+  try {
+    const { title, reason, remarks } = req.body || {};
+    if (!title) return res.status(400).json({ error: '请输入批次标题' });
+    const batch = suspension.createDraftBatch(req, title, reason, remarks);
+    res.json({ batch });
+  } catch (e) { next(e); }
+});
+
+app.get('/api/suspension/batches/:id', authMiddleware, (req, res, next) => {
+  try {
+    const detail = suspension.getBatchDetail(parseInt(req.params.id));
+    if (!detail) return res.status(404).json({ error: '批次不存在' });
+    res.json(detail);
+  } catch (e) { next(e); }
+});
+
+app.post('/api/suspension/batches/:id/items', authMiddleware, (req, res, next) => {
+  try {
+    const { items } = req.body || {};
+    if (!items || !Array.isArray(items)) return res.status(400).json({ error: '请提供停诊条目数组' });
+    const result = suspension.addBatchItems(req, parseInt(req.params.id), items);
+    res.json({ items: result });
+  } catch (e) { next(e); }
+});
+
+app.get('/api/suspension/batches/:id/preview', authMiddleware, (req, res, next) => {
+  try {
+    const preview = suspension.previewAffected(parseInt(req.params.id));
+    res.json(preview);
+  } catch (e) { next(e); }
+});
+
+app.post('/api/suspension/batches/:id/save-draft', authMiddleware, (req, res, next) => {
+  try {
+    const result = suspension.saveDraft(req, parseInt(req.params.id));
+    res.json(result);
+  } catch (e) { next(e); }
+});
+
+app.post('/api/suspension/batches/:id/execute', authMiddleware, requireAdmin, (req, res, next) => {
+  try {
+    const result = suspension.executeBatch(req, parseInt(req.params.id));
+    res.json(result);
+  } catch (e) { next(e); }
+});
+
+app.post('/api/suspension/batches/:id/revoke', authMiddleware, requireAdmin, (req, res, next) => {
+  try {
+    const { reason } = req.body || {};
+    const result = suspension.revokeBatch(req, parseInt(req.params.id), reason);
+    res.json(result);
+  } catch (e) { next(e); }
+});
+
+app.post('/api/suspension/csv/import', authMiddleware, (req, res, next) => {
+  try {
+    const { content } = req.body || {};
+    if (!content) return res.status(400).json({ error: '请提供 CSV 内容' });
+    const result = suspensionCsv.importSuspensionList(req, content);
+    res.json(result);
+  } catch (e) { next(e); }
+});
+
+app.get('/api/suspension/csv/export/:batchId/affected', authMiddleware, (req, res, next) => {
+  try {
+    const result = suspensionCsv.exportAffectedPatients(req, parseInt(req.params.batchId));
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(result.fileName)}"`);
+    res.send(result.csv);
+  } catch (e) { next(e); }
+});
+
+app.get('/api/suspension/csv/export/:batchId/results', authMiddleware, (req, res, next) => {
+  try {
+    const result = suspensionCsv.exportProcessResults(req, parseInt(req.params.batchId));
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(result.fileName)}"`);
+    res.send(result.csv);
+  } catch (e) { next(e); }
+});
+
+app.get('/api/suspension/csv/export/:batchId/unprocessed', authMiddleware, (req, res, next) => {
+  try {
+    const result = suspensionCsv.exportUnprocessed(req, parseInt(req.params.batchId));
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(result.fileName)}"`);
+    res.send(result.csv);
+  } catch (e) { next(e); }
+});
+
+app.get('/api/suspension/exports', authMiddleware, (req, res, next) => {
+  try {
+    const { batchId } = req.query;
+    const exports = suspensionDao.getExportRecords(batchId ? parseInt(batchId) : null);
+    res.json({ exports });
+  } catch (e) { next(e); }
+});
+
+app.get('/api/suspension/config', authMiddleware, (req, res, next) => {
+  try {
+    const config = suspension.getSuspensionConfig();
+    res.json({ config });
+  } catch (e) { next(e); }
+});
+
+app.put('/api/suspension/config', authMiddleware, requireAdmin, (req, res, next) => {
+  try {
+    const { key, value } = req.body || {};
+    if (!key || value === undefined) return res.status(400).json({ error: '请提供配置键和值' });
+    if (!['suspension_waitlist_strategy', 'suspension_auto_notify'].includes(key)) {
+      return res.status(400).json({ error: '不支持的配置键' });
+    }
+    const result = suspension.updateConfig(req, key, value);
+    res.json(result);
+  } catch (e) { next(e); }
+});
+
+app.get('/api/doctors', authMiddleware, (req, res, next) => {
+  try {
+    const doctors = db.prepare('SELECT * FROM doctors ORDER BY department, name').all();
+    res.json({ doctors });
+  } catch (e) { next(e); }
+});
+
+app.get('/api/slots', authMiddleware, (req, res, next) => {
+  try {
+    const { date, doctorId } = req.query;
+    let sql = `
+      SELECT s.*, d.name AS doctor_name, d.department
+      FROM slots s
+      JOIN doctors d ON s.doctor_id = d.id
+      WHERE 1=1
+    `;
+    const params = [];
+    if (date) { sql += ' AND s.date = ?'; params.push(date); }
+    if (doctorId) { sql += ' AND s.doctor_id = ?'; params.push(parseInt(doctorId)); }
+    sql += ' ORDER BY s.date, s.period';
+    const slots = db.prepare(sql).all(...params);
+    res.json({ slots });
+  } catch (e) { next(e); }
 });
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', time: timeCtrl.formatDateTime(timeCtrl.getCurrentTime()) }));
