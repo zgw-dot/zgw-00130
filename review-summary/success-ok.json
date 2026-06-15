@@ -1,0 +1,46 @@
+{
+  "startedAt": 1781502489168,
+  "rounds": [
+    {
+      "label": "第一轮（首次启动）",
+      "port": 3208,
+      "dataDir": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\tmp_smoke_31056_1",
+      "ok": true,
+      "failCode": 0,
+      "failReason": null,
+      "duration": 1172,
+      "steps": {
+        "port_check": {
+          "ok": true,
+          "duration": 0
+        },
+        "install": {
+          "ok": true,
+          "skipped": true
+        },
+        "seed": {
+          "ok": true
+        },
+        "server_start": {
+          "ok": true,
+          "pid": 26856
+        },
+        "smoke": {
+          "passed": 23,
+          "failed": 0,
+          "errors": []
+        }
+      }
+    }
+  ],
+  "tempDirs": [
+    "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\tmp_smoke_31056_1"
+  ],
+  "finalResult": "pass_round1_only",
+  "failCode": 0,
+  "failReason": null,
+  "logPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_logs\\smoke_2026-06-15T05-48-09-163Z.log",
+  "port": 3208,
+  "restartPort": 3002,
+  "endedAt": 1781502490355
+}

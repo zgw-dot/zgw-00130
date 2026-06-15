@@ -1,0 +1,44 @@
+{
+  "id": "record_2026-06-15T05-47-25-926Z",
+  "timestamp": 1781502445932,
+  "timestampISO": "2026-06-15T05:47:25.932Z",
+  "command": "node smoke_test.js --port 3206 --no-restart",
+  "argv": [
+    "--port",
+    "3206",
+    "--no-restart"
+  ],
+  "exitCode": 2,
+  "finalResult": "fail_round1",
+  "failCode": 2,
+  "failReason": "第一轮失败: 端口 3206 被占用",
+  "durationMs": 27,
+  "logPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_logs\\smoke_2026-06-15T05-47-25-926Z.log",
+  "recordPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_records\\record_2026-06-15T05-47-25-926Z.json",
+  "install": {
+    "executed": false,
+    "skipped": false,
+    "ok": false
+  },
+  "rounds": [
+    {
+      "label": "第一轮（首次启动）",
+      "port": 3206,
+      "dataDir": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\tmp_smoke_46660_1",
+      "ok": false,
+      "failCode": 2,
+      "failReason": "端口 3206 被占用",
+      "durationMs": 26,
+      "pid": null,
+      "healthCheck": null,
+      "seed": null,
+      "smoke": null,
+      "steps": {
+        "port_check": {
+          "ok": false,
+          "duration": 0
+        }
+      }
+    }
+  ]
+}

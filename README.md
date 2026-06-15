@@ -82,6 +82,35 @@ node smoke.js --help
 | `--no-restart` | 只跑首轮，跳过跨重启二次验证 |
 | `--skip-install` | 跳过 npm install（假设依赖已装） |
 | `--skip-smoke` | 跳过 API 冒烟（只验 安装+seed+启动+健康） |
+| `--history <N>` | 查看最近 N 次运行记录 |
+
+### 运行记录（Run Records）
+
+每次运行验收脚本（**无论成功或失败**），都会自动在 `server/smoke_records/` 下生成一条 JSON 记录文件 `record_<timestamp>.json`，确保硬失败也不会只在控制台一闪而过。记录包含：
+
+| 字段 | 说明 |
+|---|---|
+| `command` / `argv` | 完整命令和参数 |
+| `install` | 是否真的执行了安装（`executed`/`skipped`/`ok`） |
+| `rounds[].pid` | 每轮启动的后端进程 PID |
+| `rounds[].port` | 每轮使用的端口 |
+| `rounds[].healthCheck` | 健康检查结果 |
+| `rounds[].seed` | seed 结果 |
+| `rounds[].smoke` | 冒烟测试 passed/failed/errors 明细 |
+| `failCode` / `failReason` | 失败分类和原因 |
+| `logPath` | 详细日志路径 |
+| `recordPath` | 本记录文件路径 |
+
+查看历史记录：
+
+```bash
+# 查看最近 5 次运行记录（从根目录）
+npm run smoke-test -- --history 5
+node smoke.js --history 5
+
+# 或用快捷脚本（需传 -- 后跟数字）
+npm run smoke-history -- 5
+```
 
 ---
 

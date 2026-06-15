@@ -1,0 +1,70 @@
+{
+  "id": "record_2026-06-15T05-39-41-403Z",
+  "timestamp": 1781501981417,
+  "timestampISO": "2026-06-15T05:39:41.417Z",
+  "command": "node smoke_test.js --port 3131 --no-restart --json D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\install_test.json",
+  "argv": [
+    "--port",
+    "3131",
+    "--no-restart",
+    "--json",
+    "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\install_test.json"
+  ],
+  "exitCode": 0,
+  "finalResult": "pass_round1_only",
+  "failCode": 0,
+  "failReason": null,
+  "durationMs": 6693,
+  "logPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_logs\\smoke_2026-06-15T05-39-41-403Z.log",
+  "recordPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_records\\record_2026-06-15T05-39-41-403Z.json",
+  "install": {
+    "executed": true,
+    "skipped": false,
+    "ok": true
+  },
+  "rounds": [
+    {
+      "label": "第一轮（首次启动）",
+      "port": 3131,
+      "dataDir": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\tmp_smoke_45176_1",
+      "ok": true,
+      "failCode": 0,
+      "failReason": null,
+      "durationMs": 6378,
+      "pid": 33124,
+      "healthCheck": {
+        "ok": true
+      },
+      "seed": {
+        "ok": true
+      },
+      "smoke": {
+        "passed": 23,
+        "failed": 0,
+        "errors": []
+      },
+      "steps": {
+        "port_check": {
+          "ok": true,
+          "duration": 0
+        },
+        "install": {
+          "ok": true,
+          "duration": 0
+        },
+        "seed": {
+          "ok": true
+        },
+        "server_start": {
+          "ok": true,
+          "pid": 33124
+        },
+        "smoke": {
+          "passed": 23,
+          "failed": 0,
+          "errors": []
+        }
+      }
+    }
+  ]
+}

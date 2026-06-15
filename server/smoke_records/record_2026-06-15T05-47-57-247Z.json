@@ -1,0 +1,55 @@
+{
+  "id": "record_2026-06-15T05-47-57-247Z",
+  "timestamp": 1781502477252,
+  "timestampISO": "2026-06-15T05:47:57.252Z",
+  "command": "node smoke_test.js --port 3207 --no-restart --data-dir D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\review-bad\\as-file.txt",
+  "argv": [
+    "--port",
+    "3207",
+    "--no-restart",
+    "--data-dir",
+    "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\review-bad\\as-file.txt"
+  ],
+  "exitCode": 3,
+  "finalResult": "fail_round1",
+  "failCode": 3,
+  "failReason": "第一轮失败: seed 失败: seed 完成但数据库文件不存在",
+  "durationMs": 385,
+  "logPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_logs\\smoke_2026-06-15T05-47-57-247Z.log",
+  "recordPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_records\\record_2026-06-15T05-47-57-247Z.json",
+  "install": {
+    "executed": false,
+    "skipped": true,
+    "ok": true
+  },
+  "rounds": [
+    {
+      "label": "第一轮（首次启动）",
+      "port": 3207,
+      "dataDir": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\review-bad\\as-file.txt",
+      "ok": false,
+      "failCode": 3,
+      "failReason": "seed 失败: seed 完成但数据库文件不存在",
+      "durationMs": 385,
+      "pid": null,
+      "healthCheck": null,
+      "seed": {
+        "ok": true
+      },
+      "smoke": null,
+      "steps": {
+        "port_check": {
+          "ok": true,
+          "duration": 0
+        },
+        "install": {
+          "ok": true,
+          "skipped": true
+        },
+        "seed": {
+          "ok": true
+        }
+      }
+    }
+  ]
+}

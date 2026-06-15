@@ -2,12 +2,24 @@
 
 'use strict';
 
+const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 
 const ROOT = __dirname;
 const SERVER_ROOT = path.join(ROOT, 'server');
 const ACTUAL_SCRIPT = path.join(SERVER_ROOT, 'smoke_test.js');
+const RECORDS_DIR = path.join(SERVER_ROOT, 'smoke_records');
+
+const FAIL_CODE_MAP = {
+  1: 'install_fail', 2: 'port_occupied', 3: 'seed_fail',
+  4: 'server_not_up', 5: 'health_timeout', 6: 'smoke_fail',
+  7: 'restart_fail', 99: 'unknown',
+};
+
+function failCodeToString(code) {
+  return FAIL_CODE_MAP[code] || 'unknown';
+}
 
 function printRootHelp() {
   console.log(`
@@ -36,6 +48,21 @@ function printRootHelp() {
   --keep-data                测试结束后保留数据目录
   --skip-install             跳过 npm install (假设依赖已装)
   --skip-smoke               跳过 API 冒烟测试 (只验证安装+seed+启动)
+  --history <N>              查看最近 N 次运行记录
+
+运行记录:
+  每次运行（无论成功或失败）都会自动在 server/smoke_records/ 目录下生成一条
+  JSON 记录文件 (record_<timestamp>.json)，包含:
+    - 命令参数 (command, argv)
+    - 安装状态 (install: executed/skipped/ok)
+    - seed 目录与结果
+    - 服务进程 PID、端口
+    - 健康检查结果
+    - 冒烟测试结果 (passed/failed/errors)
+    - 各轮次详情 (第一轮、第二轮)
+    - 失败分类 (failCode, failReason)
+    - 日志路径 (logPath)、运行记录路径 (recordPath)
+  使用 --history <N> 可快速查看最近 N 条记录。
 
 示例:
   # 一次跑两轮（首次启动 + 跨重启换端口/数据目录）
@@ -46,6 +73,10 @@ function printRootHelp() {
 
   # 指定数据目录并保留，写 JSON 摘要
   node smoke.js --data-dir ./tmp_acceptance --keep-data --json result.json
+
+  # 查看最近 5 次运行记录
+  npm run smoke-test -- --history 5
+  node smoke.js --history 5
 
 失败代码 (exitCode):
   0  全部通过
@@ -60,9 +91,62 @@ function printRootHelp() {
 
 提示:
   - 日志写入 server/smoke_logs/smoke_*.log
+  - 运行记录写入 server/smoke_records/record_*.json
   - 脚本禁止复用机器上已在跑的服务，端口占用会硬失败
   - 所有路径(数据目录、JSON输出)均相对项目根目录解析
 `);
+}
+
+function showHistory(n) {
+  if (isNaN(n) || n <= 0) {
+    console.error('--history 需要正整数参数');
+    process.exit(99);
+  }
+  if (!fs.existsSync(RECORDS_DIR)) {
+    console.log('暂无运行记录');
+    process.exit(0);
+  }
+  const files = fs.readdirSync(RECORDS_DIR)
+    .filter(f => f.startsWith('record_') && f.endsWith('.json'))
+    .sort()
+    .reverse();
+  if (files.length === 0) {
+    console.log('暂无运行记录');
+    process.exit(0);
+  }
+  const selected = files.slice(0, n);
+  console.log(`\n最近 ${n} 次运行记录 (共 ${files.length} 条):\n`);
+  for (const f of selected) {
+    try {
+      const data = JSON.parse(fs.readFileSync(path.join(RECORDS_DIR, f), 'utf8'));
+      const ts = data.timestampISO || data.id.replace('record_', '');
+      const resultStr = data.finalResult === 'pass' || data.finalResult === 'pass_round1_only'
+        ? '✅ PASS'
+        : `❌ FAIL (${failCodeToString(data.failCode)})`;
+      const cmd = data.command || '';
+      const port = data.rounds && data.rounds[0] ? data.rounds[0].port : (data.port || '-');
+      const dur = data.durationMs ? `${(data.durationMs / 1000).toFixed(1)}s` : 'n/a';
+      const installStr = data.install
+        ? (data.install.executed ? '安装执行' : (data.install.skipped ? '安装跳过' : '安装未到'))
+        : '-';
+      console.log(`  ${ts}  ${resultStr}  端口=${port}  时长=${dur}  安装=${installStr}`);
+      console.log(`    命令: ${cmd}`);
+      if (data.rounds) {
+        for (const r of data.rounds) {
+          const ri = r.ok ? '✅' : '❌';
+          console.log(`    ${ri} ${r.label} PID=${r.pid || '-'} 数据=${r.dataDir || '-'} 烟雾=${r.smoke ? r.smoke.passed + '/' + (r.smoke.passed + r.smoke.failed) : '-'} 结果=${r.ok ? 'PASS' : 'FAIL:' + failCodeToString(r.failCode)}`);
+        }
+      }
+      if (data.failReason) {
+        console.log(`    失败原因: ${data.failReason}`);
+      }
+      console.log(`    日志: ${data.logPath || '-'}  记录: ${data.recordPath || '-'}`);
+      console.log('');
+    } catch (_) {
+      console.log(`  [无法读取: ${f}]`);
+    }
+  }
+  process.exit(0);
 }
 
 function resolveRelativePaths(rawArgv) {
@@ -86,6 +170,14 @@ const rawArgv = process.argv.slice(2);
 if (rawArgv.includes('-h') || rawArgv.includes('--help')) {
   printRootHelp();
   process.exit(0);
+}
+
+for (let i = 0; i < rawArgv.length; i++) {
+  if (rawArgv[i] === '--history') {
+    const n = parseInt(rawArgv[i + 1], 10);
+    showHistory(n);
+    break;
+  }
 }
 
 const argv = resolveRelativePaths(rawArgv);

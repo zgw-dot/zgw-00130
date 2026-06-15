@@ -1,0 +1,114 @@
+{
+  "id": "record_2026-06-15T05-33-25-780Z",
+  "timestamp": 1781501605857,
+  "timestampISO": "2026-06-15T05:33:25.857Z",
+  "command": "node smoke_test.js --port 3121 --restart-port 3122 --json D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\acceptance_result.json",
+  "argv": [
+    "--port",
+    "3121",
+    "--restart-port",
+    "3122",
+    "--json",
+    "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\acceptance_result.json"
+  ],
+  "exitCode": 0,
+  "finalResult": "pass",
+  "failCode": 0,
+  "failReason": null,
+  "durationMs": 2458,
+  "logPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_logs\\smoke_2026-06-15T05-33-25-780Z.log",
+  "recordPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_records\\record_2026-06-15T05-33-25-780Z.json",
+  "install": {
+    "executed": false,
+    "skipped": true,
+    "ok": true
+  },
+  "rounds": [
+    {
+      "label": "第一轮（首次启动）",
+      "port": 3121,
+      "dataDir": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\tmp_smoke_18604_1",
+      "ok": true,
+      "failCode": 0,
+      "failReason": null,
+      "durationMs": 1265,
+      "pid": 40472,
+      "healthCheck": {
+        "ok": true
+      },
+      "seed": {
+        "ok": true
+      },
+      "smoke": {
+        "passed": 23,
+        "failed": 0,
+        "errors": []
+      },
+      "steps": {
+        "port_check": {
+          "ok": true,
+          "duration": 0
+        },
+        "install": {
+          "ok": true,
+          "skipped": true
+        },
+        "seed": {
+          "ok": true
+        },
+        "server_start": {
+          "ok": true,
+          "pid": 40472
+        },
+        "smoke": {
+          "passed": 23,
+          "failed": 0,
+          "errors": []
+        }
+      }
+    },
+    {
+      "label": "第二轮（跨重启验证）",
+      "port": 3122,
+      "dataDir": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\tmp_smoke_18604_2",
+      "ok": true,
+      "failCode": 0,
+      "failReason": null,
+      "durationMs": 1158,
+      "pid": 2272,
+      "healthCheck": {
+        "ok": true
+      },
+      "seed": {
+        "ok": true
+      },
+      "smoke": {
+        "passed": 23,
+        "failed": 0,
+        "errors": []
+      },
+      "steps": {
+        "port_check": {
+          "ok": true,
+          "duration": 0
+        },
+        "install": {
+          "ok": true,
+          "skipped": true
+        },
+        "seed": {
+          "ok": true
+        },
+        "server_start": {
+          "ok": true,
+          "pid": 2272
+        },
+        "smoke": {
+          "passed": 23,
+          "failed": 0,
+          "errors": []
+        }
+      }
+    }
+  ]
+}

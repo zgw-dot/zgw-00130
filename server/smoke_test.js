@@ -12,6 +12,7 @@ const { spawn, execSync } = require('child_process');
 const ROOT = path.join(__dirname);
 const SERVER_ROOT = ROOT;
 const LOG_DIR = path.join(SERVER_ROOT, 'smoke_logs');
+const RECORDS_DIR = path.join(SERVER_ROOT, 'smoke_records');
 const DEFAULT_PORT = 3001;
 const DEFAULT_HEALTH_TIMEOUT_MS = 15000;
 const DEFAULT_INSTALL_TIMEOUT_MS = 120000;
@@ -47,11 +48,28 @@ function printHelp() {
   --strict-port-check          端口占用时直接失败 (默认行为, 仅用于显式声明)
   --json <文件>             将摘要额外写入 JSON 文件
                               路径解析规则同 --data-dir
+  --history <N>             查看最近 N 次运行记录
+
+运行记录:
+  每次运行（无论成功或失败）都会自动在 server/smoke_records/ 目录下生成一条
+  JSON 记录文件 (record_<timestamp>.json)，包含以下信息:
+    - 命令参数 (command, argv)
+    - 安装状态 (install: executed/skipped/ok)
+    - seed 目录与结果
+    - 服务进程 PID、端口
+    - 健康检查结果
+    - 冒烟测试结果 (passed/failed/errors)
+    - 各轮次详情 (第一轮、第二轮)
+    - 失败分类 (failCode, failReason)
+    - 日志路径 (logPath)
+    - 运行记录路径 (recordPath)
+  使用 --history <N> 可快速查看最近 N 条记录。
 
 示例:
   npm run smoke-test
   npm run smoke-test:once -- --port 3099
   node smoke.js --data-dir ./tmp_acceptance --keep-data
+  node smoke_test.js --history 5
 
 失败代码 (exitCode):
   0  全部通过
@@ -78,6 +96,7 @@ function parseArgs(argv) {
     skipSmoke: false,
     strictPortCheck: true,
     json: null,
+    history: null,
     help: false,
   };
   for (let i = 2; i < argv.length; i++) {
@@ -94,6 +113,7 @@ function parseArgs(argv) {
       case '--skip-smoke': args.skipSmoke = true; break;
       case '--strict-port-check': args.strictPortCheck = true; break;
       case '--json': args.json = argv[++i]; break;
+      case '--history': args.history = parseInt(argv[++i], 10); break;
       default:
         console.error(`未知参数: ${a}`);
         process.exit(99);
@@ -218,6 +238,7 @@ function npmInstall(cwd, timeoutMs, logger) {
     const child = spawn(npm, ['install', '--no-audit', '--no-fund'], {
       cwd, stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env },
+      shell: process.platform === 'win32',
     });
     let stdout = '', stderr = '';
     child.stdout.on('data', (d) => { stdout += d.toString(); });
@@ -544,9 +565,120 @@ async function runOneRound(opts, logger, roundLabel) {
   return summary;
 }
 
+function writeRunRecord(stamp, logPath, finalSummary) {
+  try {
+    if (!fs.existsSync(RECORDS_DIR)) fs.mkdirSync(RECORDS_DIR, { recursive: true });
+    const recordId = `record_${stamp}`;
+    const recordPath = path.join(RECORDS_DIR, `${recordId}.json`);
+
+    const firstRoundSteps = finalSummary.rounds.length > 0 ? finalSummary.rounds[0].steps : {};
+    const installStep = firstRoundSteps.install || {};
+    let installRecord;
+    if (finalSummary.rounds.length > 0 && finalSummary.rounds[0].failCode === FAIL.INSTALL) {
+      installRecord = { executed: true, skipped: false, ok: false };
+    } else if (installStep.skipped) {
+      installRecord = { executed: false, skipped: true, ok: !!installStep.ok };
+    } else if (Object.keys(installStep).length > 0) {
+      installRecord = { executed: true, skipped: false, ok: !!installStep.ok };
+    } else {
+      installRecord = { executed: false, skipped: false, ok: false };
+    }
+
+    const recordRounds = finalSummary.rounds.map(r => {
+      const steps = r.steps || {};
+      const serverStart = steps.server_start || {};
+      const seedStep = steps.seed || null;
+      const smokeStep = steps.smoke || null;
+      let healthCheck = null;
+      if (serverStart.ok) {
+        healthCheck = { ok: true };
+      } else if (r.failCode === FAIL.HEALTH_TIMEOUT) {
+        healthCheck = { ok: false };
+      }
+
+      return {
+        label: r.label,
+        port: r.port,
+        dataDir: r.dataDir,
+        ok: r.ok,
+        failCode: r.failCode,
+        failReason: r.failReason,
+        durationMs: r.duration,
+        pid: serverStart.pid || null,
+        healthCheck,
+        seed: seedStep,
+        smoke: smokeStep,
+        steps,
+      };
+    });
+
+    const exitCode = finalSummary.failCode || 0;
+    const record = {
+      id: recordId,
+      timestamp: finalSummary.startedAt,
+      timestampISO: new Date(finalSummary.startedAt).toISOString(),
+      command: `node smoke_test.js ${process.argv.slice(2).join(' ')}`,
+      argv: process.argv.slice(2),
+      exitCode,
+      finalResult: finalSummary.finalResult,
+      failCode: finalSummary.failCode,
+      failReason: finalSummary.failReason,
+      durationMs: finalSummary.endedAt - finalSummary.startedAt,
+      logPath,
+      recordPath,
+      install: installRecord,
+      rounds: recordRounds,
+    };
+
+    fs.writeFileSync(recordPath, JSON.stringify(record, null, 2));
+    return recordPath;
+  } catch (e) {
+    return null;
+  }
+}
+
 async function main() {
   const args = parseArgs(process.argv);
   if (args.help) { printHelp(); process.exit(0); }
+
+  if (args.history) {
+    const n = args.history;
+    if (isNaN(n) || n <= 0) {
+      console.error('--history 需要正整数参数');
+      process.exit(99);
+    }
+    if (!fs.existsSync(RECORDS_DIR)) {
+      console.log('暂无运行记录');
+      process.exit(0);
+    }
+    const files = fs.readdirSync(RECORDS_DIR)
+      .filter(f => f.startsWith('record_') && f.endsWith('.json'))
+      .sort()
+      .reverse();
+    if (files.length === 0) {
+      console.log('暂无运行记录');
+      process.exit(0);
+    }
+    const selected = files.slice(0, n);
+    console.log(`\n最近 ${n} 次运行记录 (共 ${files.length} 条):\n`);
+    for (const f of selected) {
+      try {
+        const data = JSON.parse(fs.readFileSync(path.join(RECORDS_DIR, f), 'utf8'));
+        const ts = data.timestampISO || data.id.replace('record_', '');
+        const resultStr = data.finalResult === 'pass' || data.finalResult === 'pass_round1_only'
+          ? '✅ PASS'
+          : `❌ FAIL (${failCodeToString(data.failCode)})`;
+        const cmd = data.command || '';
+        const port = data.rounds && data.rounds[0] ? data.rounds[0].port : (data.port || '-');
+        const dur = data.durationMs ? `${(data.durationMs / 1000).toFixed(1)}s` : 'n/a';
+        console.log(`  ${ts}  ${resultStr}  端口=${port}  时长=${dur}  命令=${cmd}`);
+      } catch (_) {
+        console.log(`  [无法读取: ${f}]`);
+      }
+    }
+    console.log('');
+    process.exit(0);
+  }
 
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const logPath = path.join(LOG_DIR, `smoke_${stamp}.log`);
@@ -593,7 +725,7 @@ async function main() {
     failCode: r1.failCode,
     failReason: r1.failReason,
     duration: r1.endedAt ? r1.endedAt - r1.startedAt : null,
-    steps: Object.keys(r1.steps),
+    steps: r1.steps,
   });
 
   // 清理第一轮进程
@@ -640,7 +772,7 @@ async function main() {
       failCode: r2.failCode,
       failReason: r2.failReason,
       duration: r2.endedAt ? r2.endedAt - r2.startedAt : null,
-      steps: Object.keys(r2.steps),
+      steps: r2.steps,
     });
 
     if (r2.child) {
@@ -690,6 +822,12 @@ async function main() {
     logger.error(`失败原因: ${finalSummary.failReason}`);
   }
 
+  // ========== 写入运行记录 ==========
+  const recordPath = writeRunRecord(stamp, logPath, finalSummary);
+  if (recordPath) {
+    logger.info(`运行记录: ${recordPath}`);
+  }
+
   if (args.json) {
     try {
       const jsonPath = path.isAbsolute(args.json) ? args.json : path.resolve(SERVER_ROOT, args.json);
@@ -706,5 +844,27 @@ async function main() {
 
 main().catch((e) => {
   console.error(`[致命] 顶层异常:`, e && e.stack ? e.stack : e);
+  try {
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const recDir = path.join(__dirname, 'smoke_records');
+    if (!fs.existsSync(recDir)) fs.mkdirSync(recDir, { recursive: true });
+    const recPath = path.join(recDir, `record_${ts}.json`);
+    fs.writeFileSync(recPath, JSON.stringify({
+      id: `record_${ts}`,
+      timestamp: Date.now(),
+      timestampISO: new Date().toISOString(),
+      command: `node smoke_test.js ${process.argv.slice(2).join(' ')}`,
+      argv: process.argv.slice(2),
+      exitCode: FAIL.UNKNOWN,
+      finalResult: 'fatal_error',
+      failCode: FAIL.UNKNOWN,
+      failReason: e && e.message ? e.message : String(e),
+      durationMs: 0,
+      logPath: null,
+      recordPath: recPath,
+      install: { executed: false, skipped: false, ok: false },
+      rounds: [],
+    }, null, 2));
+  } catch (_) {}
   process.exit(FAIL.UNKNOWN);
 });

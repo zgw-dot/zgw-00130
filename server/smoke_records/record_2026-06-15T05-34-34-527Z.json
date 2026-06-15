@@ -1,0 +1,45 @@
+{
+  "id": "record_2026-06-15T05-34-34-527Z",
+  "timestamp": 1781501674555,
+  "timestampISO": "2026-06-15T05:34:34.555Z",
+  "command": "node smoke_test.js --port 3199 --no-restart --skip-install",
+  "argv": [
+    "--port",
+    "3199",
+    "--no-restart",
+    "--skip-install"
+  ],
+  "exitCode": 2,
+  "finalResult": "fail_round1",
+  "failCode": 2,
+  "failReason": "第一轮失败: 端口 3199 被占用",
+  "durationMs": 8,
+  "logPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_logs\\smoke_2026-06-15T05-34-34-527Z.log",
+  "recordPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_records\\record_2026-06-15T05-34-34-527Z.json",
+  "install": {
+    "executed": false,
+    "skipped": false,
+    "ok": false
+  },
+  "rounds": [
+    {
+      "label": "第一轮（首次启动）",
+      "port": 3199,
+      "dataDir": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\tmp_smoke_41084_1",
+      "ok": false,
+      "failCode": 2,
+      "failReason": "端口 3199 被占用",
+      "durationMs": 8,
+      "pid": null,
+      "healthCheck": null,
+      "seed": null,
+      "smoke": null,
+      "steps": {
+        "port_check": {
+          "ok": false,
+          "duration": 0
+        }
+      }
+    }
+  ]
+}

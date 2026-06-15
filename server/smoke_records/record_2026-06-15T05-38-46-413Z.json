@@ -1,0 +1,46 @@
+{
+  "id": "record_2026-06-15T05-38-46-413Z",
+  "timestamp": 1781501926423,
+  "timestampISO": "2026-06-15T05:38:46.423Z",
+  "command": "node smoke_test.js --port 3131 --no-restart --json D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\install_test.json",
+  "argv": [
+    "--port",
+    "3131",
+    "--no-restart",
+    "--json",
+    "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\install_test.json"
+  ],
+  "exitCode": 1,
+  "finalResult": "fail_round1",
+  "failCode": 1,
+  "failReason": "第一轮失败: npm install 失败: spawn EINVAL",
+  "durationMs": 153,
+  "logPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_logs\\smoke_2026-06-15T05-38-46-413Z.log",
+  "recordPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_records\\record_2026-06-15T05-38-46-413Z.json",
+  "install": {
+    "executed": true,
+    "skipped": false,
+    "ok": false
+  },
+  "rounds": [
+    {
+      "label": "第一轮（首次启动）",
+      "port": 3131,
+      "dataDir": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\tmp_smoke_21464_1",
+      "ok": false,
+      "failCode": 1,
+      "failReason": "npm install 失败: spawn EINVAL",
+      "durationMs": 152,
+      "pid": null,
+      "healthCheck": null,
+      "seed": null,
+      "smoke": null,
+      "steps": {
+        "port_check": {
+          "ok": true,
+          "duration": 0
+        }
+      }
+    }
+  ]
+}

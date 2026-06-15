@@ -16,7 +16,8 @@
     "build": "cd client && npm run build",
     "smoke-test": "node smoke.js",
     "smoke-test:once": "node smoke.js --no-restart",
-    "acceptance": "node smoke.js"
+    "acceptance": "node smoke.js",
+    "smoke-history": "node smoke.js --history"
   },
   "keywords": ["outpatient", "waitlist", "appointment"],
   "author": "",

@@ -1,0 +1,116 @@
+{
+  "id": "record_2026-06-15T05-44-45-025Z",
+  "timestamp": 1781502285028,
+  "timestampISO": "2026-06-15T05:44:45.028Z",
+  "command": "node smoke_test.js --port 3201 --restart-port 3202 --data-dir D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\review-temp-data\\case1 --json D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\review-summary\\success.json",
+  "argv": [
+    "--port",
+    "3201",
+    "--restart-port",
+    "3202",
+    "--data-dir",
+    "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\review-temp-data\\case1",
+    "--json",
+    "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\review-summary\\success.json"
+  ],
+  "exitCode": 0,
+  "finalResult": "pass",
+  "failCode": 0,
+  "failReason": null,
+  "durationMs": 2295,
+  "logPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_logs\\smoke_2026-06-15T05-44-45-025Z.log",
+  "recordPath": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\server\\smoke_records\\record_2026-06-15T05-44-45-025Z.json",
+  "install": {
+    "executed": false,
+    "skipped": true,
+    "ok": true
+  },
+  "rounds": [
+    {
+      "label": "第一轮（首次启动）",
+      "port": 3201,
+      "dataDir": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\review-temp-data\\case1",
+      "ok": true,
+      "failCode": 0,
+      "failReason": null,
+      "durationMs": 1177,
+      "pid": 42652,
+      "healthCheck": {
+        "ok": true
+      },
+      "seed": {
+        "ok": true
+      },
+      "smoke": {
+        "passed": 23,
+        "failed": 0,
+        "errors": []
+      },
+      "steps": {
+        "port_check": {
+          "ok": true,
+          "duration": 0
+        },
+        "install": {
+          "ok": true,
+          "skipped": true
+        },
+        "seed": {
+          "ok": true
+        },
+        "server_start": {
+          "ok": true,
+          "pid": 42652
+        },
+        "smoke": {
+          "passed": 23,
+          "failed": 0,
+          "errors": []
+        }
+      }
+    },
+    {
+      "label": "第二轮（跨重启验证）",
+      "port": 3202,
+      "dataDir": "D:\\workSpace\\AI__SPACE\\02-label\\zgw-00130\\review-temp-data\\case1_2",
+      "ok": true,
+      "failCode": 0,
+      "failReason": null,
+      "durationMs": 1092,
+      "pid": 46704,
+      "healthCheck": {
+        "ok": true
+      },
+      "seed": {
+        "ok": true
+      },
+      "smoke": {
+        "passed": 23,
+        "failed": 0,
+        "errors": []
+      },
+      "steps": {
+        "port_check": {
+          "ok": true,
+          "duration": 0
+        },
+        "install": {
+          "ok": true,
+          "skipped": true
+        },
+        "seed": {
+          "ok": true
+        },
+        "server_start": {
+          "ok": true,
+          "pid": 46704
+        },
+        "smoke": {
+          "passed": 23,
+          "failed": 0,
+          "errors": []
+        }
+      }
+    }
+  ]
+}
